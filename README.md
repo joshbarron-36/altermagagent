@@ -264,20 +264,23 @@ You can point the tool at a shared or backed-up project tree without risk to it.
 
 ## Software and references
 
-AltermagAgent builds on the work of others; please cite them when you use its results.
+AltermagAgent reads results that were computed earlier and adds its own analysis on top.
+The references below are split so that a reader can tell which is which.
 
-Symmetry analysis:
+How to cite:
 
-- spglib (crystal and magnetic space groups): A. Togo, K. Shinohara, I. Tanaka, Sci. Technol. Adv. Mater.: Methods 4, 2384822 (2024), https://doi.org/10.1080/27660400.2024.2384822
-- spglib magnetic space group search: K. Shinohara, A. Togo, I. Tanaka, Acta Cryst. A 79, 390 (2023), https://doi.org/10.1107/S2053273323005016
-- spinspg (spin groups of collinear non-SOC runs): K. Shinohara et al., Acta Cryst. A 80, 94 (2024), https://doi.org/10.1107/S2053273323009257
-- Symmetr: J. Železný, "Symmetr: a Python package for determining symmetry properties of crystals", arXiv:2602.21034 (2026), code at bitbucket.org/zeleznyj/linear-response-symmetry
+- Using AltermagAgent to inspect existing results: cite AltermagAgent and the original computational work.
+- Publishing results that rely on a specific method or package: also cite that method or package below.
 
-How the CrSe and MnTe data were computed (Diana Golovanova):
+### Scientific data provenance
 
-The DFT calculations were performed with the Vienna ab initio simulation package (VASP) with projector augmented wave (PAW) potentials [1, 2].
-Exchange and correlation were treated in the generalized gradient approximation (GGA) with the Perdew-Burke-Ernzerhof (PBE) functional [3].
-The tight-binding Hamiltonians were extracted with maximally localized Wannier functions through the VASP2WANNIER90 interface [4, 5].
+Software and methods that produced the CrSe and MnTe results; AltermagAgent only reads their outputs.
+
+The density functional theory (DFT) calculations for CrSe and MnTe were performed by Diana Golovanova with the Vienna ab initio Simulation Package (VASP) [1, 2].
+The electron-ion interaction was described with the projector augmented-wave (PAW) method [2].
+Exchange and correlation were treated in the generalized gradient approximation with the Perdew-Burke-Ernzerhof (PBE) functional [3].
+Maximally localized Wannier functions [4] were constructed with Wannier90 3.1 [5], with the electronic-structure data passed from VASP through its VASP2WANNIER90 interface.
+The resulting Wannier tight-binding Hamiltonians were used for the later analysis.
 
 1. G. Kresse, J. Furthmüller, Phys. Rev. B 54, 11169 (1996), https://doi.org/10.1103/PhysRevB.54.11169
 2. G. Kresse, D. Joubert, Phys. Rev. B 59, 1758 (1999), https://doi.org/10.1103/PhysRevB.59.1758
@@ -285,19 +288,36 @@ The tight-binding Hamiltonians were extracted with maximally localized Wannier f
 4. N. Marzari, D. Vanderbilt, Phys. Rev. B 56, 12847 (1997), https://doi.org/10.1103/PhysRevB.56.12847
 5. G. Pizzi et al., J. Phys.: Condens. Matter 32, 165902 (2020), https://doi.org/10.1088/1361-648X/ab51ff
 
-Wannier Hamiltonian symmetrisation (outputs read by the tool):
+Wannier Hamiltonian symmetrisation, used to generate input data, not run by AltermagAgent:
 
 - wannhr_symm_Mag: A tool for symmetrization of magnetic WannierTB, https://github.com/quanshengwu/wannier_tools/tree/master/utility/wannhr_symm_Mag, Changming Yue.
 - wannhr_symm: A tool for symmetrization of non-magnetic WannierTB, https://github.com/quanshengwu/wannier_tools/tree/master/utility/wannhr_symm/, Changming Yue.
+- Both are part of WannierTools: Q. Wu, S. Zhang, H.-F. Song, M. Troyer, A. A. Soluyanov, "WannierTools: An open-source software package for novel topological materials", Comput. Phys. Commun. 224, 405-416 (2018), https://doi.org/10.1016/j.cpc.2017.09.033
 
-Codes whose outputs are read, and libraries used:
+Magnetic symmetry files (findsym.in, findsym.log), generated with Symmetr, not run by AltermagAgent:
 
-- VASP and Wannier90: references [1] to [5] above.
-- pymatgen (structures and matching): S. P. Ong et al., Comput. Mater. Sci. 68, 314 (2013), https://doi.org/10.1016/j.commatsci.2012.10.028
+- Symmetr: J. Železný, "Symmetr: a Python package for determining symmetry properties of crystals", Comput. Phys. Commun. 328, 110309 (2026), https://doi.org/10.1016/j.cpc.2026.110309, code at https://github.com/zeleznyj/symmetr (preprint arXiv:2602.21034)
+
+### Analysis dependencies
+
+Packages whose analysis AltermagAgent runs itself.
+
+- spglib (crystal and magnetic space groups): A. Togo, K. Shinohara, I. Tanaka, Sci. Technol. Adv. Mater.: Methods 4, 2384822 (2024), https://doi.org/10.1080/27660400.2024.2384822
+- spglib magnetic space group search: K. Shinohara, A. Togo, I. Tanaka, Acta Cryst. A 79, 390 (2023), https://doi.org/10.1107/S2053273323005016
+- spinspg (spin groups of collinear non-SOC runs): K. Shinohara et al., Acta Cryst. A 80, 94 (2024), https://doi.org/10.1107/S2053273323009257
+- pymatgen (structures, band files and matching): S. P. Ong et al., Comput. Mater. Sci. 68, 314 (2013), https://doi.org/10.1016/j.commatsci.2012.10.028
+- Wannier band comparison: an internal AltermagAgent module written by Diana Golovanova, see `docs/wannier_comparison`.
+
+### Interface and external services
+
+Libraries and services for display, interaction and literature search.
+
+- NiceGUI: F. Schindler, R. Trappe, "NiceGUI: Web-based user interfaces with Python. The nice way.", https://doi.org/10.5281/zenodo.7785516
+- marimo: A. Agrawal, M. Scolnick, "marimo - an open-source reactive notebook for Python", https://doi.org/10.5281/zenodo.12735329
 - 3Dmol.js (3D structure view): N. Rego, D. Koes, Bioinformatics 31, 1322 (2015), https://doi.org/10.1093/bioinformatics/btu829
-- Literature search: the Valency MCP platform, https://labs.valency.io
-- Interface and notebook: NiceGUI (https://nicegui.io), marimo (https://marimo.io), matplotlib and plotly.
-- Wannier band comparison module: Diana Golovanova, see `docs/wannier_comparison`.
+- Matplotlib: J. D. Hunter, "Matplotlib: A 2D Graphics Environment", Computing in Science & Engineering 9(3), 90-95 (2007), https://doi.org/10.1109/MCSE.2007.55
+- Plotly: Plotly Technologies Inc., Collaborative Data Science, Montréal, QC (2015), https://plot.ly
+- Valency: the Valency MCP platform for the literature search, https://valency.io
 
 ## License
 
