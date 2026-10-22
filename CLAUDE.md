@@ -11,7 +11,7 @@ It is built at the OSI hackathon on 21 and 22 October 2026, as a free and open t
 ## Layout of the code
 
 - `altermagagent/importer.py`: walks a VASP folder tree read-only and writes each run into the index.
-- `altermagagent/summary.py`: builds the nine summary points and the gaps list from the indexed runs.
+- `altermagagent/summary.py`: builds the summary points and the gaps list from the indexed runs.
 - `altermagagent/files.py`: read-only file helpers for excerpts, folder listings and the file links on each run card.
 - `altermagagent/agent.py`: the project chat, which answers only from the indexed summary and runs.
 - `altermagagent/app.py`: the three-panel browser interface (projects, storyline, chat), built with NiceGUI.
@@ -52,7 +52,7 @@ python3.14 -m venv .venv
 
 ```bash
 altermag import <root> --name <project>   # read-only scan of <root> into the index
-altermag summary <project>                # print the nine summary points, the gaps and the runs in order
+altermag summary <project>                # print the summary points, the gaps and the runs in order
 altermag benchmark <project> <file.json>  # compare with expected values: pass, fail or unknown per row
 altermag gui                              # start the interface on http://localhost:8080
 ```

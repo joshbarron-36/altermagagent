@@ -75,12 +75,12 @@ def _(db, project_pick):
     return project, runs, summ
 
 
-# The nine summary points with the evidence tag of each point.
+# The summary points with the evidence tag of each point; the heading counts them.
 @app.cell
 def _(mo, project, summ):
     _rows = [{"#": i, "point": p["label"], "value": p["value"], "evidence tag": p.get("state", ""),
               "evidence": p.get("state_note", "")} for i, p in enumerate(summ["points"], 1)]
-    mo.vstack([mo.md(f"## Nine summary points of {project}\n\nEach point carries its evidence tag and the file it was read from."),
+    mo.vstack([mo.md(f"## {len(_rows)} summary points of {project}\n\nEach point carries its evidence tag and the file it was read from."),
                mo.ui.table(_rows, selection=None, pagination=False)])
     return
 
