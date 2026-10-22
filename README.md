@@ -271,7 +271,9 @@ Symmetry analysis:
 - spglib (crystal and magnetic space groups): A. Togo, K. Shinohara, I. Tanaka, Sci. Technol. Adv. Mater.: Methods 4, 2384822 (2024), https://doi.org/10.1080/27660400.2024.2384822
 - spglib magnetic space group search: K. Shinohara, A. Togo, I. Tanaka, Acta Cryst. A 79, 390 (2023), https://doi.org/10.1107/S2053273323005016
 - spinspg (spin groups of collinear non-SOC runs): K. Shinohara et al., Acta Cryst. A 80, 94 (2024), https://doi.org/10.1107/S2053273323009257
-- FINDSYM (the tool reads findsym.log and writes findsym.in): H. T. Stokes, D. M. Hatch, J. Appl. Cryst. 38, 237 (2005), https://doi.org/10.1107/S0021889804031528
+- FINDSYM (the tool reads findsym.log and writes findsym.in), cited as its authors ask:
+  H. T. Stokes, D. M. Hatch, and B. J. Campbell, FINDSYM, ISOTROPY Software Suite, iso.byu.edu.
+  H. T. Stokes and D. M. Hatch, "FINDSYM: program for identifying the space-group symmetry of a crystal", J. Appl. Cryst. 38, 237-238 (2005), https://doi.org/10.1107/S0021889804031528
 
 How the CrSe and MnTe data were computed (Diana Golovanova):
 
