@@ -10,7 +10,7 @@ On two real projects, CrSe and MnTe, its computed magnetic space groups matched 
 
 Built by Diana Golovanova (Weizmann Institute of Science), Poulami Sadhukhan (CSIR National Chemical Laboratory) and Josh Barron.
 
-Thanks to the hackathon sponsors Valency, whose MCP platform powers the built-in literature search, and marimo, which runs our walkthrough notebook.
+Thanks to the hackathon sponsors Valency (https://valency.io), whose MCP platform powers the built-in literature search, and marimo (https://www.linkedin.com/company/marimo-io), which runs our walkthrough notebook.
 
 The walkthrough video is below.
 
