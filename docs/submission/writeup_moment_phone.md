@@ -65,7 +65,7 @@ The demo tree is synthetic, so no VASP is needed; `altermag gui` opens the inter
 ## Team and credits
 
 - **Diana Golovanova**, Weizmann Institute of Science: data, physics, procedure rules and the Wannier comparison module.
-- **Josh Barron:** build and submission.
+- **Josh Barron:** design and software build (directed with AI coding agents), integration of Diana's module and validations, video and write-up.
 - **Poulami Sadhukhan**, CSIR National Chemical Laboratory: independent installation.
 
 ## Links
