@@ -1,12 +1,10 @@
 AltermagAgent reads old VASP folder trees without changing them and says which claims the files support, which they do not, and what to run next. On Diana Golovanova's real CrSe project it found two magnetic realizations in four branches, two unconverged SCF runs, and a magnetic space group that matches her own findsym.log.
 
-## The problem
+## Approach
 
-Computational materials projects live in scattered VASP folders whose history is written down nowhere.
-Months later, nobody can say which run supports which conclusion, or what is missing.
-Workflow tools record provenance only for work done inside them.
+**The problem.** Computational materials projects live in scattered VASP folders whose history is written down nowhere. Months later, nobody can say which run supports which conclusion, or what is missing. Workflow tools record provenance only for work done inside them.
 
-## What we built
+**What we built:**
 
 - **Branch graph:** runs grouped by structure, magnetic realization and SOC, drawn like a git history; each parent link gives a reason, candidates or "unknown".
 - **Evidence tags:** every summary point names its files and carries a tag: output found, parsed, validated or insufficient evidence.
@@ -19,7 +17,7 @@ Workflow tools record provenance only for work done inside them.
 [IMAGE 1]
 *The real CrSe project: eight tagged summary points and 13 runs in four branches.*
 
-## What we found on real data
+## Results
 
 **CrSe** (13 runs, 1127 files):
 
@@ -46,12 +44,18 @@ Workflow tools record provenance only for work done inside them.
 - On 20 synthetic CrSe trees with known truth (137 runs): phase 100 %, status 100 %, parent link 98.5 % (docs/accuracy.md).
 - Poulami Sadhukhan installed it on a second machine, a Windows laptop, in about twenty minutes over a mobile hotspot, with no errors.
 
-## What it refuses to claim
+**What it refuses to claim:**
 
 - It never states that a material is an altermagnet on the basis of the files.
 - A computed magnetic space group stays "pending validation" until a findsym.log or the physicist confirms it.
 - Transport output is reported as found and parsed, never as validated.
 - Published papers never count as evidence.
+
+## Next steps
+
+- Spin group analysis next to the magnetic space group.
+- SSH access to computing clusters, so the tool can read running projects where they live.
+- Planning of new calculations: from the suggested next step to a prepared, checked input folder.
 
 ## Reproduce in five commands
 
