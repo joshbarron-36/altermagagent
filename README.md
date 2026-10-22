@@ -272,7 +272,6 @@ Symmetry analysis:
 - spglib magnetic space group search: K. Shinohara, A. Togo, I. Tanaka, Acta Cryst. A 79, 390 (2023), https://doi.org/10.1107/S2053273323005016
 - spinspg (spin groups of collinear non-SOC runs): K. Shinohara et al., Acta Cryst. A 80, 94 (2024), https://doi.org/10.1107/S2053273323009257
 - Symmetr: J. Železný, "Symmetr: a Python package for determining symmetry properties of crystals", arXiv:2602.21034 (2026), code at bitbucket.org/zeleznyj/linear-response-symmetry
-- FINDSYM, included in Symmetr: H. T. Stokes, D. M. Hatch, and B. J. Campbell, FINDSYM, ISOTROPY Software Suite, iso.byu.edu.
 
 How the CrSe and MnTe data were computed (Diana Golovanova):
 
