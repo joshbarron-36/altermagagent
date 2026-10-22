@@ -289,8 +289,6 @@ Wannier Hamiltonian symmetrisation (outputs read by the tool), cited as its auth
 
 - wannhr_symm_Mag: A tool for symmetrization of magnetic WannierTB, https://github.com/quanshengwu/wannier_tools/tree/master/utility/wannhr_symm_Mag, Changming Yue.
 - wannhr_symm: A tool for symmetrization of non-magnetic WannierTB, https://github.com/quanshengwu/wannier_tools/tree/master/utility/wannhr_symm/, Changming Yue.
-- Both are distributed with WannierTools: Q. Wu, S. Zhang, H.-F. Song, M. Troyer, A. A. Soluyanov, Comput. Phys. Commun. 224, 405 (2018), https://doi.org/10.1016/j.cpc.2017.09.033
-- Symmetrisation method (Eq. 5, as referenced in the wannhr_symm README): D. Gresch, Q. Wu, G. W. Winkler, R. Häuselmann, M. Troyer, A. A. Soluyanov, Phys. Rev. Materials 2, 103805 (2018), https://doi.org/10.1103/PhysRevMaterials.2.103805
 
 Codes whose outputs are read, and libraries used:
 
