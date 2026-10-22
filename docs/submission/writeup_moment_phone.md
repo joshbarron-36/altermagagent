@@ -12,7 +12,7 @@ AltermagAgent reads old VASP folder trees without changing them and says which c
 - **Define MSG:** spglib computes the magnetic space group from the moments and compares it with the user's findsym.log, or writes findsym.in.
 - **Wannier comparison** by Diana Golovanova: Wannier bands against VASP bands, with mean and maximum error.
 - **Literature kept apart:** papers found through the Valency MCP platform appear under "From the literature, not from these files" and never change a suggestion.
-- **Chat** that answers only from the indexed files and cites them, and a **marimo** notebook that walks through the same analysis.
+- **Chat** that answers only from the indexed files and cites them, and a **Marimo** notebook that walks through the same analysis.
 
 *Figure 1 (gallery image 1): The real CrSe project: eight tagged summary points and 13 runs in four branches.*
 
@@ -75,7 +75,7 @@ The demo tree is synthetic, so no VASP is needed; `altermag gui` opens the inter
 The CrSe and MnTe data were computed by Diana Golovanova with VASP (PAW, GGA-PBE) and Wannier90 through VASP2WANNIER90.
 Symmetry analysis uses spglib, spinspg and FINDSYM; full references for these and the other codes are in the README.
 
-With thanks to two hackathon sponsors: [Valency](https://valency.io), whose MCP platform powers the built-in literature search, and [marimo](https://marimo.io), which runs the walkthrough notebook.
+With thanks to two hackathon sponsors: [Valency](https://valency.io), whose MCP platform powers the built-in literature search, and [Marimo](https://marimo.io), which runs the walkthrough notebook.
 
 ## Links
 
