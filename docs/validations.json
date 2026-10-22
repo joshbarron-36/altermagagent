@@ -17,5 +17,11 @@
    "note": "The three collinear runs are a started, uncompleted project."},
   {"project": "CrSe_real", "run": "umbrella", "item": "folder content",
    "value": "no calculations", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
-   "note": "The umbrella folder has no calculations."}
+   "note": "The umbrella folder has no calculations."},
+  {"project": "CrSe_real", "run": "coplanar/1-noSOC/04_wannier", "item": "run status",
+   "value": "completed", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "Completed Wannier90 calculation with retained outputs (job 647993, log confirms). Leftover error logs are from deleted earlier runs."},
+  {"project": "CrSe_real", "branch": ["coplanar-SOC", "collinear-SOC"], "item": "INCAR convention",
+   "value": "ISPIN = 2 whenever SOC is on", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "Her rule for every SOC run; the next-calculation suggestions follow it."}
 ]

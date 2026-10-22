@@ -615,7 +615,7 @@ def next_calculation(branch, steps, br, soc):
     scfs = [r for r in br if r["details"].get("phase") == "scf"]
     conv = [r for r in scfs if (r["details"].get("scf_converged") or {}).get("converged") and r["status"] == "completed"]
     ncl = soc or branch["realization"] in ("coplanar", "non-coplanar") or any(noncollinear(r["details"]) for r in br)
-    nc = "LNONCOLLINEAR = .TRUE., " if ncl else "ISPIN = 2, "
+    nc = "ISPIN = 2, LNONCOLLINEAR = .TRUE., " if soc else ("LNONCOLLINEAR = .TRUE., " if ncl else "ISPIN = 2, ")
     if k == "a":
         return f"Next: write POSCAR and INCAR MAGMOM for {branch['name']} so the structure and moments are known."
     if k == "b":

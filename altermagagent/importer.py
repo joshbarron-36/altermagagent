@@ -149,7 +149,7 @@ def find_error(folder, names):
     return None
 
 
-# Decide whether the run finished, using OUTCAR timing or the vasprun.xml closing tag.
+# Decide whether the run finished: OUTCAR timing, the vasprun.xml closing tag, or the Wannier90 "All done" line.
 def find_completion(folder, names):
     if "OUTCAR" in names:
         for line in iter_lines(folder / "OUTCAR"):
@@ -157,6 +157,8 @@ def find_completion(folder, names):
                 return "OUTCAR"
     if "vasprun.xml" in names and tail_text(folder / "vasprun.xml").rstrip().endswith("</modeling>"):
         return "vasprun.xml"
+    if "wannier90.wout" in names and "All done: wannier90 exiting" in tail_text(folder / "wannier90.wout"):
+        return "wannier90.wout"
     return None
 
 
