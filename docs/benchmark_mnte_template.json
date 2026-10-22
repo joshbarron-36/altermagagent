@@ -1,0 +1,26 @@
+{
+  "name": "Diana's MnTe project (9-scf, 9.2-band, 9.6-wannier); Diana fills every expected value",
+  "rows": [
+    {"id": "net moment", "quantity": "net_moment", "run": "9-scf", "expected": null, "tolerance": 0.01,
+     "units": "μB per cell", "source": "9-scf/OUTCAR", "tool_value_2026_10_21": 0.001,
+     "tests": "compensation: the summed site moment vectors cancel within the tolerance"},
+    {"id": "Mn site moment", "quantity": "site_moment", "run": "9-scf", "element": "Mn", "expected": null, "tolerance": 0.05,
+     "units": "μB", "source": "9-scf/OUTCAR", "tool_value_2026_10_21": 2.246,
+     "tests": "the magnetization table of OUTCAR is read per site and per element"},
+    {"id": "space group", "quantity": "spacegroup_number", "run": "9-scf", "expected": null, "tolerance": 0,
+     "units": "", "source": "9-scf/CONTCAR", "tool_value_2026_10_21": 194,
+     "tests": "spglib (symprec 0.01) finds P6_3/mmc"},
+    {"id": "lattice a", "quantity": "lattice_a", "run": "9-scf", "expected": null, "tolerance": 0.001,
+     "units": "Å", "source": "9-scf/CONTCAR", "tool_value_2026_10_21": 4.1475, "tests": "the structure file is read"},
+    {"id": "lattice c", "quantity": "lattice_c", "run": "9-scf", "expected": null, "tolerance": 0.001,
+     "units": "Å", "source": "9-scf/CONTCAR", "tool_value_2026_10_21": 6.71, "tests": "the structure file is read"},
+    {"id": "symmetry operations", "quantity": "symmops", "expected": null, "tolerance": 0,
+     "units": "operations", "source": "9.6-wannier/wannier_sym/mysymmop.dat", "tool_value_2026_10_21": 24,
+     "tests": "the wannhr_symm log is read; this does not test the magnetic state"},
+    {"id": "spin splitting", "quantity": "splitting_max", "expected": null, "tolerance": 0.01,
+     "units": "eV", "source": "vasprun.xml of a collinear non-SOC band run, not yet in the folder", "tool_value_2026_10_21": null,
+     "tests": "largest up-down difference among the sampled k-points and bands within ±1.5 eV of E_F; unknown until the run exists"},
+    {"id": "SCF energy", "quantity": "total_energy", "run": "9-scf", "expected": null, "tolerance": 0.0001,
+     "units": "eV", "source": "9-scf/OSZICAR", "tool_value_2026_10_21": -22.667769, "tests": "the last F= value of OSZICAR is read"}
+  ]
+}

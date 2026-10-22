@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "altermagagent"
+version = "0.1.0"
+description = "Read-only storylines of magnetic VASP projects with a three-panel browser interface"
+requires-python = ">=3.12"
+dependencies = [
+    "nicegui==3.18.0",
+    "pymatgen==2026.9.24",
+    "spglib==2.8.0",
+    "anthropic==2.0.0",
+    "ase==3.29.0",
+    "matplotlib==3.11.2",
+    "plotly==7.1.0",
+    "numpy==2.5.4",
+]
+
+[project.scripts]
+altermag = "altermagagent.cli:main"
+
+[tool.setuptools]
+packages = ["altermagagent"]

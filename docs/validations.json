@@ -1,0 +1,21 @@
+[
+  {"project": "CrSe_real", "branch": ["collinear-noSOC", "collinear-SOC"], "item": "magnetic space group",
+   "value": "P6_3'/m'm'c (BNS 194.268)", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "Diana confirmed the computed collinear label is correct."},
+  {"project": "CrSe_real", "branch": "coplanar-noSOC", "item": "magnetic space group",
+   "value": "P-62'm' (BNS 189.225)", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "Agrees with her findsym.log."},
+  {"project": "MnTe", "branch": "realization-1-SOC", "item": "magnetic space group",
+   "value": "Cm'c'm (BNS 63.462)", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "Agrees with her own 9-scf/findsym.log."},
+  {"project": "CrSe_real", "run": ["coplanar/1-noSOC/020_scf", "coplanar/1-noSOC/021_scf"], "item": "scf convergence",
+   "value": "NOT reached", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "Known unconverged trials."},
+  {"project": "CrSe_real", "run": ["collinear/5-bands/VCA_1.000/02-noSOC-bands", "collinear/5-bands/VCA_1.000/03-SOC-scf",
+   "collinear/5-bands/VCA_1.000/04-SOC-bands"], "item": "project state",
+   "value": "started, not completed", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "The three collinear runs are a started, uncompleted project."},
+  {"project": "CrSe_real", "run": "umbrella", "item": "folder content",
+   "value": "no calculations", "status": "validated by physicist", "who": "Diana Golovanova", "date": "2026-10-22",
+   "note": "The umbrella folder has no calculations."}
+]

@@ -1,0 +1,111 @@
+{
+ "video": "altermagagent_silent_v4.mp4",
+ "fps": 25,
+ "total_seconds": 206.0,
+ "scenes": [
+  {
+   "scene": "question",
+   "title": "The problem and the question",
+   "script_time": "0:00 to 0:15",
+   "start": 0.0,
+   "duration": 17.0,
+   "narration": "My CrSe project has 13 VASP runs from two months of work, and nowhere is its history written down. One question matters: can these existing calculations support the claim we want to make, and what is the next calculation?"
+  },
+  {
+   "scene": "import",
+   "title": "Import, read-only",
+   "script_time": "0:15 to 0:30",
+   "start": 17.0,
+   "duration": 17.0,
+   "narration": "I point AltermagAgent at the folder. It only reads; it never writes inside it. It scanned 13 runs and 1127 files in under four seconds. My MnTe folder, with four runs, is scanned in seconds."
+  },
+  {
+   "scene": "summary",
+   "title": "The summary",
+   "script_time": "0:30 to 0:45",
+   "start": 34.0,
+   "duration": 17.0,
+   "narration": "Eight points sum up the project, each with its evidence file and a tag. Magnetic lists two realizations: coplanar in ten runs, net moment zero in OUTCAR, and collinear in three runs, from INCAR only."
+  },
+  {
+   "scene": "graph",
+   "title": "The branch graph",
+   "script_time": "0:45 to 1:00",
+   "start": 51.0,
+   "duration": 17.0,
+   "narration": "The runs are grouped into branches and drawn like a git history. There are four branches, split by magnetic realization and by spin-orbit coupling, or SOC. I click the coplanar SOC node."
+  },
+  {
+   "scene": "runs",
+   "title": "The branch's runs",
+   "script_time": "1:00 to 1:15",
+   "start": 68.0,
+   "duration": 17.0,
+   "narration": "The branch lists its three runs in order, each with INCAR shown as changes versus its parent. The first SCF reads a WAVECAR, but no earlier run has the same SOC setting, so its parent is unknown."
+  },
+  {
+   "scene": "suggestions",
+   "title": "The suggestions in six steps",
+   "script_time": "1:15 to 1:40",
+   "start": 85.0,
+   "duration": 15.0,
+   "narration": "Below the runs, the suggestions follow my six working steps, from structure to transport, each marked done, partial or missing. On the coplanar SOC branch all six are done: symmetry gives P-62'm', and step e shows the Wannier band match. On the collinear non-SOC branch, the next calculation is a new SCF, with the exact INCAR tags to set."
+  },
+  {
+   "scene": "msg",
+   "title": "Symmetries and convergence",
+   "script_time": "1:40 to 2:00",
+   "start": 100.0,
+   "duration": 15.0,
+   "narration": "The Symmetries row gives one magnetic space group per magnetic realization, with its magnetic point group. On the coplanar non-SOC branch, step b reads P-62'm' from my own findsym.log, and the computed label agrees. The tool also reads every OSZICAR, and the convergence is visible on the run cards. Runs 020 and 021 carry a red \"unconverged\" badge: they stopped above EDIFF; step c cites run 023, which converged."
+  },
+  {
+   "scene": "band",
+   "title": "Band figure and structure",
+   "script_time": "2:00 to 2:20",
+   "start": 115.0,
+   "duration": 15.0,
+   "narration": "The SOC band run is redrawn in a window from minus one to one electronvolt, with the path labels from my KPOINTS file. The structure view shows the input moments, and I can rotate it."
+  },
+  {
+   "scene": "procedure",
+   "title": "Local procedure checks and the Wannier card",
+   "script_time": "2:20 to 2:35",
+   "start": 130.0,
+   "duration": 17.0,
+   "narration": "Each run is compared with my own procedure notes, such as job slots against NBANDS. These are local checks, pending my confirmation, not physics errors. The Wannier card lists the energy windows and projections."
+  },
+  {
+   "scene": "wannier_match",
+   "title": "Wannier Hamiltonian versus VASP bands: mean error 0.04 meV",
+   "script_time": "2:35 to 2:45",
+   "start": 147.0,
+   "duration": 12.0,
+   "narration": "My comparison script overlays the raw Hamiltonian of 3.1-wannier on the VASP bands of 2-bands. Within 1 eV of the Fermi level the mean error is 0.04 meV, the RMSE 0.07 meV and the maximum 0.66 meV."
+  },
+  {
+   "scene": "literature",
+   "title": "The literature section",
+   "script_time": "2:45 to 3:00",
+   "start": 159.0,
+   "duration": 17.0,
+   "narration": "Below the suggestions, a separate heading lists published papers from a literature search. They come from the literature, not from these files, and they never change the suggestions."
+  },
+  {
+   "scene": "chat",
+   "title": "The chat",
+   "script_time": "3:00 to 3:15",
+   "start": 176.0,
+   "duration": 18.0,
+   "narration": "I ask the chat: what has been done on the coplanar branch, and what is missing? It answers only from the indexed files and names the run and file behind each fact."
+  },
+  {
+   "scene": "close",
+   "title": "Close",
+   "script_time": "3:15 to 3:25",
+   "start": 194.0,
+   "duration": 12.0,
+   "narration": "AltermagAgent is free and open, under Apache 2.0. On 20 synthetic trees with known answers it scored 100 percent on phase and status, and 98.5 percent on parents. Run it on your own folders."
+  }
+ ]
+}

@@ -1,0 +1,17 @@
+Which of your old calculation folders actually support the claims in your paper, and what should you run next?
+
+At the Open Scientific Intelligence Hackathon we built AltermagAgent, a free and open tool that reads VASP folder trees without changing them.
+
+It groups the runs into branches by structure, magnetic realization and spin-orbit coupling, draws them like a git history, and tags every finding: output found, parsed, validated or insufficient evidence.
+
+It is an honest diagnosis, not a verdict. It names unconverged runs, missing steps and the next calculation, and it never calls a material an altermagnet from the files alone.
+
+On two real projects, CrSe and MnTe, its computed magnetic space groups matched the physicist's own findsym results.
+
+Built by Diana Golovanova (Weizmann Institute of Science), Poulami Sadhukhan (CSIR National Chemical Laboratory) and Josh Barron.
+
+The walkthrough video is below.
+
+Code: https://github.com/joshbarron-36/altermagagent
+
+#ComputationalMaterials #DFT #Altermagnetism #OpenScience #ReproducibleResearch

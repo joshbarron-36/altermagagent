@@ -1,0 +1,10 @@
+nicegui==3.18.0
+pymatgen==2026.9.24
+spglib==2.8.0
+spinspg==0.3.2
+anthropic==2.0.0
+ase==3.29.0
+matplotlib==3.11.2
+plotly==7.1.0
+marimo==0.25.2
+numpy==2.5.4

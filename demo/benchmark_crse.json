@@ -1,0 +1,20 @@
+{
+  "name": "Synthetic CrSe demo tree written by demo/make_demo.py",
+  "rows": [
+    {"id": "net moment", "quantity": "net_moment", "run": "scf_nosoc", "expected": 0.0, "tolerance": 0.01,
+     "units": "μB per cell", "source": "scf_nosoc/OUTCAR", "tests": "compensation: the summed site moments cancel within the tolerance"},
+    {"id": "Cr site moment", "quantity": "site_moment", "run": "scf_nosoc", "element": "Cr", "expected": 3.12, "tolerance": 0.05,
+     "units": "μB", "source": "scf_nosoc/OUTCAR", "tests": "the magnetization table of OUTCAR is read per site and per element"},
+    {"id": "space group", "quantity": "spacegroup_number", "run": "scf_nosoc", "expected": 194, "tolerance": 0,
+     "units": "", "source": "scf_nosoc/CONTCAR", "tests": "spglib (symprec 0.01) finds P6_3/mmc for the NiAs-type cell"},
+    {"id": "lattice a", "quantity": "lattice_a", "run": "scf_nosoc", "expected": 3.684, "tolerance": 0.001,
+     "units": "Å", "source": "scf_nosoc/CONTCAR", "tests": "the relaxed lattice is carried into the later runs"},
+    {"id": "lattice c", "quantity": "lattice_c", "run": "scf_nosoc", "expected": 6.019, "tolerance": 0.001,
+     "units": "Å", "source": "scf_nosoc/CONTCAR", "tests": "the relaxed lattice is carried into the later runs"},
+    {"id": "spin splitting", "quantity": "splitting_max", "expected": 0.42, "tolerance": 0.01,
+     "units": "eV", "source": "bands_nosoc/vasprun.xml",
+     "tests": "largest up-down difference among the sampled k-points and bands within ±1.5 eV of E_F, non-SOC band run"},
+    {"id": "SCF energy", "quantity": "total_energy", "run": "scf_nosoc", "expected": -36.9027, "tolerance": 0.0001,
+     "units": "eV", "source": "scf_nosoc/OSZICAR", "tests": "the last F= value of OSZICAR is read"}
+  ]
+}

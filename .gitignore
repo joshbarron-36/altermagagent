@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+demo/CrSe_demo/
+*.sqlite
+*.log
+.env
+data/
+*.tar.gz
+*.tgz
+demo/CrSe_demo_without_nosoc_bands/
+demo/variants/
