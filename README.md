@@ -288,7 +288,7 @@ The tight-binding Hamiltonians were extracted with maximally localized Wannier f
 4. N. Marzari, D. Vanderbilt, Phys. Rev. B 56, 12847 (1997), https://doi.org/10.1103/PhysRevB.56.12847
 5. G. Pizzi et al., J. Phys.: Condens. Matter 32, 165902 (2020), https://doi.org/10.1088/1361-648X/ab51ff
 
-Wannier Hamiltonian symmetrisation (outputs read by the tool), cited as its author asks:
+Wannier Hamiltonian symmetrisation (outputs read by the tool):
 
 - wannhr_symm_Mag: A tool for symmetrization of magnetic WannierTB, https://github.com/quanshengwu/wannier_tools/tree/master/utility/wannhr_symm_Mag, Changming Yue.
 - wannhr_symm: A tool for symmetrization of non-magnetic WannierTB, https://github.com/quanshengwu/wannier_tools/tree/master/utility/wannhr_symm/, Changming Yue.
