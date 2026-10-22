@@ -262,6 +262,27 @@ You can point the tool at a shared or backed-up project tree without risk to it.
 - Structure arrows show the INCAR starting moments, not the OUTCAR moments.
 - The 3D structure view needs an internet connection.
 
+## Software and references
+
+AltermagAgent builds on the work of others; please cite them when you use its results.
+
+Symmetry analysis:
+
+- spglib (crystal and magnetic space groups): A. Togo, K. Shinohara, I. Tanaka, Sci. Technol. Adv. Mater.: Methods 4, 2384822 (2024), https://doi.org/10.1080/27660400.2024.2384822
+- spglib magnetic space group search: K. Shinohara, A. Togo, I. Tanaka, Acta Cryst. A 79, 390 (2023), https://doi.org/10.1107/S2053273323005016
+- spinspg (spin groups of collinear non-SOC runs): K. Shinohara et al., Acta Cryst. A 80, 94 (2024), https://doi.org/10.1107/S2053273323009257
+- FINDSYM (the tool reads findsym.log and writes findsym.in): H. T. Stokes, D. M. Hatch, J. Appl. Cryst. 38, 237 (2005), https://doi.org/10.1107/S0021889804031528
+
+Codes whose outputs are read, and libraries used:
+
+- VASP: G. Kresse, J. Furthmüller, Phys. Rev. B 54, 11169 (1996), https://doi.org/10.1103/PhysRevB.54.11169
+- Wannier90: G. Pizzi et al., J. Phys.: Condens. Matter 32, 165902 (2020), https://doi.org/10.1088/1361-648X/ab51ff
+- pymatgen (structures and matching): S. P. Ong et al., Comput. Mater. Sci. 68, 314 (2013), https://doi.org/10.1016/j.commatsci.2012.10.028
+- 3Dmol.js (3D structure view): N. Rego, D. Koes, Bioinformatics 31, 1322 (2015), https://doi.org/10.1093/bioinformatics/btu829
+- Literature search: the Valency MCP platform, https://labs.valency.io
+- Interface and notebook: NiceGUI (https://nicegui.io), marimo (https://marimo.io), matplotlib and plotly.
+- Wannier band comparison module: Diana Golovanova, see `docs/wannier_comparison`.
+
 ## License
 
 See `LICENSE`.
