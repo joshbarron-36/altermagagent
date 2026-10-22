@@ -273,10 +273,21 @@ Symmetry analysis:
 - spinspg (spin groups of collinear non-SOC runs): K. Shinohara et al., Acta Cryst. A 80, 94 (2024), https://doi.org/10.1107/S2053273323009257
 - FINDSYM (the tool reads findsym.log and writes findsym.in): H. T. Stokes, D. M. Hatch, J. Appl. Cryst. 38, 237 (2005), https://doi.org/10.1107/S0021889804031528
 
+How the CrSe and MnTe data were computed (Diana Golovanova):
+
+The DFT calculations were performed with the Vienna ab initio simulation package (VASP) with projector augmented wave (PAW) potentials [1, 2].
+Exchange and correlation were treated in the generalized gradient approximation (GGA) with the Perdew-Burke-Ernzerhof (PBE) functional [3].
+The tight-binding Hamiltonians were extracted with maximally localized Wannier functions through the VASP2WANNIER90 interface [4, 5].
+
+1. G. Kresse, J. Furthmüller, Phys. Rev. B 54, 11169 (1996), https://doi.org/10.1103/PhysRevB.54.11169
+2. G. Kresse, D. Joubert, Phys. Rev. B 59, 1758 (1999), https://doi.org/10.1103/PhysRevB.59.1758
+3. J. P. Perdew, K. Burke, M. Ernzerhof, Phys. Rev. Lett. 77, 3865 (1996), https://doi.org/10.1103/PhysRevLett.77.3865
+4. N. Marzari, D. Vanderbilt, Phys. Rev. B 56, 12847 (1997), https://doi.org/10.1103/PhysRevB.56.12847
+5. G. Pizzi et al., J. Phys.: Condens. Matter 32, 165902 (2020), https://doi.org/10.1088/1361-648X/ab51ff
+
 Codes whose outputs are read, and libraries used:
 
-- VASP: G. Kresse, J. Furthmüller, Phys. Rev. B 54, 11169 (1996), https://doi.org/10.1103/PhysRevB.54.11169
-- Wannier90: G. Pizzi et al., J. Phys.: Condens. Matter 32, 165902 (2020), https://doi.org/10.1088/1361-648X/ab51ff
+- VASP and Wannier90: references [1] to [5] above.
 - pymatgen (structures and matching): S. P. Ong et al., Comput. Mater. Sci. 68, 314 (2013), https://doi.org/10.1016/j.commatsci.2012.10.028
 - 3Dmol.js (3D structure view): N. Rego, D. Koes, Bioinformatics 31, 1322 (2015), https://doi.org/10.1093/bioinformatics/btu829
 - Literature search: the Valency MCP platform, https://labs.valency.io

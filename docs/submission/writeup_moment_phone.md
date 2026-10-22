@@ -72,6 +72,7 @@ The demo tree is synthetic, so no VASP is needed; `altermag gui` opens the inter
 - **Josh Barron:** design and software build (directed with AI coding agents), integration of Diana's module and validations, video and write-up.
 - **Poulami Sadhukhan**, CSIR National Chemical Laboratory: independent installation.
 
+The CrSe and MnTe data were computed by Diana Golovanova with VASP (PAW, GGA-PBE) and Wannier90 through VASP2WANNIER90.
 Symmetry analysis uses spglib, spinspg and FINDSYM; full references for these and the other codes are in the README.
 
 ## Links
