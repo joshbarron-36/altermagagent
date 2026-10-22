@@ -21,7 +21,9 @@ OLLAMA_TIMEOUT = 600
 NO_TOOLS_NOTE = ("Note: this local model cannot call tools, so it cannot draw figures; "
                  "use the Redraw button on a band run to draw the band figure.")
 LOG_PATH = db.HOME_DIR / "agent_calls.log"
-MAX_TOOL_ROUNDS = 4
+MAX_TOOL_ROUNDS = 6
+EXCERPT_MAX_BYTES = 2 * 1024 * 1024
+EXCERPT_MAX_LINES = 60
 TOOLS = [{
     "name": "plot_bands",
     "description": ("Draw the band structure of an existing band run of this project from its vasprun.xml and KPOINTS, "
@@ -46,6 +48,16 @@ TOOLS = [{
         "query": {"type": "string", "description": "Search text, for example 'MnTe altermagnet spin splitting'."},
         "limit": {"type": "integer", "description": "Number of papers, 1 to 5. Default 3."}},
         "required": ["query"]},
+}, {
+    "name": "read_file_excerpt",
+    "description": ("Read-only: return the first and last lines of a small text input or output file (for example INCAR, "
+                    "KPOINTS, POSCAR, OUTCAR) inside an indexed run folder of this project. At most 60 lines in total. "
+                    "Refuses files over 2 MB, binary files, CHGCAR, WAVECAR, PROCAR and paths outside the project folders."),
+    "input_schema": {"type": "object", "properties": {
+        "run_name": {"type": "string", "description": "Name of the run as in RUNS JSON, for example '2-SOC/2-bands'."},
+        "file_name": {"type": "string", "description": "File name inside the run folder, for example 'KPOINTS' or 'INCAR'."},
+        "max_lines": {"type": "integer", "description": "Total lines returned, 2 to 60. Default 60."}},
+        "required": ["run_name", "file_name"]},
 }]
 
 
@@ -112,7 +124,14 @@ def system_prompt(project, summary, runs):
         "When asked what is published or known about a material, you may call search_literature. "
         "Label every literature answer 'from the literature', cite each paper with its title and year, and keep it in a "
         "separate paragraph; never merge it with file evidence, and never let it change the suggestions from the files. "
-        "If the tool returns 'literature unavailable', say so.\n\n"
+        "If the tool returns 'literature unavailable', say so. "
+        "You may call read_file_excerpt to read small input files such as INCAR, KPOINTS or POSCAR of an indexed run. "
+        "For a question asking to prepare the next step or next calculation, the answer is a preview only: "
+        "start with a line 'Preview only: nothing is written or submitted.', and never claim that a file was written or a job submitted. "
+        "For such a question, pick the reference run (the similar finished run of the sibling branch) and the target run, "
+        "read the KPOINTS and the INCAR of both with read_file_excerpt, and state whether the two KPOINTS paths match "
+        "and which INCAR tags differ, citing the run and file names. "
+        "Then give the order of steps and which files to copy from where.\n\n"
         f"{WORKFLOW_KNOWLEDGE}\n\n"
         f"SUMMARY JSON:\n{json.dumps(summary, ensure_ascii=False)}\n\n"
         f"RUNS JSON:\n{json.dumps(run_digest(runs), ensure_ascii=False)}")
@@ -127,8 +146,48 @@ def log_call(project, input_tokens, output_tokens, note="", provider="anthropic"
         fh.write(json.dumps(rec) + "\n")
 
 
+# First and last lines of a small text file inside an indexed run folder of the project, as a JSON string.
+def read_file_excerpt(project, run_name, file_name, max_lines=EXCERPT_MAX_LINES):
+    from . import files
+    runs = db.get_runs(project)
+    want = (run_name or "").strip().rstrip("/")
+    r = next((x for x in runs if x["name"].rstrip("/") == want), None)
+    ends = [x for x in runs if want and x["name"].rstrip("/").endswith("/" + want)]
+    if r is None and len(ends) == 1:
+        r = ends[0]
+    if r is None:
+        return json.dumps({"error": f"no run named {want}; runs: {[x['name'] for x in runs]}"})
+    roots = [os.path.realpath(os.path.expanduser(q["root"])) for q in db.list_projects()
+             if q.get("name") == project and q.get("root")]
+    run_dir = os.path.realpath(os.path.expanduser(r["path"]))
+    target = os.path.realpath(os.path.join(run_dir, str(file_name or "")))
+    inside = lambda path, root: path == root or path.startswith(root.rstrip(os.sep) + os.sep)
+    if not inside(target, run_dir) or not any(inside(target, root) for root in roots):
+        return json.dumps({"error": "refused: path is outside the indexed run folder"})
+    if not files.may_open(target):
+        return json.dumps({"error": f"refused: {os.path.basename(target)} is a large binary output, never opened"})
+    if not os.path.isfile(target):
+        return json.dumps({"error": f"no file {file_name} in run {r['name']}",
+                           "files": [f["name"] for f in r["details"].get("files", [])]})
+    size = os.path.getsize(target)
+    if size > EXCERPT_MAX_BYTES:
+        return json.dumps({"error": f"refused: file is {files.human_size(size)}, over the 2 MB limit"})
+    try:
+        n = max(2, min(EXCERPT_MAX_LINES, int(max_lines or EXCERPT_MAX_LINES)))
+    except (TypeError, ValueError):
+        n = EXCERPT_MAX_LINES
+    info = files.excerpt(target, head=n - n // 2, tail=n // 2)
+    if not info["opened"]:
+        return json.dumps({"error": f"refused: {info.get('note', 'not opened')}"})
+    return json.dumps({"run": r["name"], "file": files.display_path(target), "size": info["size_text"],
+                       "modified": info["mtime_text"], "text": files.excerpt_text(info)}, ensure_ascii=False)
+
+
 # Run one tool call from the model and return its result as a JSON string.
 def run_tool(project, name, args):
+    if name == "read_file_excerpt":
+        return read_file_excerpt(project, args.get("run_name"), args.get("file_name"),
+                                 args.get("max_lines") or EXCERPT_MAX_LINES)
     if name == "search_literature":
         from .literature import search_literature
         try:
@@ -160,7 +219,7 @@ def run_tool(project, name, args):
     return json.dumps(res, ensure_ascii=False)
 
 
-# Answer one question about a project; history is a list of {"role", "content"} dicts; the model may call plot_bands or search_literature.
+# Answer one question about a project; history is a list of {"role", "content"} dicts; the model may call plot_bands, search_literature or read_file_excerpt.
 def chat(project, question, history=None):
     if not os.environ.get("ANTHROPIC_API_KEY"):
         if ollama_available():

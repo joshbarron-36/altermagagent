@@ -9,7 +9,7 @@ All files named below are in `docs/submission/` unless a full path is given.
 ## 2. LinkedIn post
 
 1. Start a new post on LinkedIn.
-2. Add the video: `altermagagent_final.mp4` if the voiced cut exists, else the silent cut `~/development/osi-hackathon/video/altermagagent_silent_v4.mp4` (the same file is in `docs/video/`).
+2. Add the video: `altermagagent_final.mp4` if the voiced cut exists, else the silent cut `~/development/osi-hackathon/video/altermagagent_silent_v5.mp4` (the same file is in `docs/video/`).
 3. Set visibility to "Anyone".
 4. Paste the full text of `linkedin_post.txt`.
 5. Post, then open the post and copy its URL (menu "..." then "Copy link to post").

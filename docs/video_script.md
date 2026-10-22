@@ -75,8 +75,8 @@ They come from the literature, not from these files, and they never change the s
 
 **3:00 to 3:15. The chat**
 
-I ask the chat: what has been done on the coplanar branch, and what is missing?
-It answers only from the indexed files and names the run and file behind each fact.
+I ask the chat: "Can you prepare the next step of band structure calculations for the collinear SOC structure, based on the similar calculations for the coplanar SOC branch?"
+It prepares the next calculation as a preview, from the coplanar sibling branch: it compares KPOINTS and INCAR, gives the order of steps and what to copy, and never submits.
 
 **3:15 to 3:25. Close**
 
@@ -121,7 +121,7 @@ Run it on your own folders.
 - 2:20 continued: close the run dialog and hold on the 3.1-wannier card line "wannier90.win: num_wann 96, bands 108, outer window ... projections".
 - 2:35 Wannier comparison: on the coplanar-SOC branch, click the Compare pill of 3.1-wannier and hold on the figure with its error box.
 - 2:45 Literature: scroll below the suggestions to "From the literature, not from these files" and hold on the note and the papers it found.
-- 3:00 Chat: type "what has been done on the coplanar branch and what is missing" in the chat, click Send, hold until the answer with citations is complete.
+- 3:00 Chat: type the next-step question above in the chat, click Send, cut the wait, and hold 18 s on the first screen of the answer with its "Preview only" line.
 - 3:15 Close: in the terminal run `python tests/accuracy.py` and hold on the three lines phase 137 / 137, status 137 / 137, parent 135 / 137.
 - 3:15 continued: end on a title card with the repository link, "Apache 2.0" and `altermag import <folder> --name <project>`.
 

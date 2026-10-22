@@ -39,3 +39,4 @@ Version 3 (3 minutes 26 seconds) re-records only summary, suggestions, msg (now 
 `video/tools/compose_v3.py` encodes those four scenes and reuses the version 2 clips for the others; the cut and `scenes_v3.json` are in `docs/video/`.
 
 Version 4 (3 minutes 26 seconds) re-records every interface scene with home paths shown as "~" or relative to the project, and redraws the terminal scenes with `terminal_v4.py`; `compose_v4.py` encodes it.
+Version 5 (209.6 seconds) re-records only the chat scene with the next-step question (`record_v5.mjs`), holds the final answer 18 s and reuses the version 4 clips (`compose_v5.py`).

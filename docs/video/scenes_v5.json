@@ -1,7 +1,7 @@
 {
- "video": "altermagagent_silent_v4.mp4",
+ "video": "altermagagent_silent_v5.mp4",
  "fps": 25,
- "total_seconds": 206.0,
+ "total_seconds": 209.6,
  "scenes": [
   {
    "scene": "question",
@@ -96,14 +96,14 @@
    "title": "The chat",
    "script_time": "3:00 to 3:15",
    "start": 176.0,
-   "duration": 18.0,
-   "narration": "I ask the chat: what has been done on the coplanar branch, and what is missing? It answers only from the indexed files and names the run and file behind each fact."
+   "duration": 21.6,
+   "narration": "I ask the chat: \"Can you prepare the next step of band structure calculations for the collinear SOC structure, based on the similar calculations for the coplanar SOC branch?\" It prepares the next calculation as a preview, from the coplanar sibling branch: it compares KPOINTS and INCAR, gives the order of steps and what to copy, and never submits."
   },
   {
    "scene": "close",
    "title": "Close",
    "script_time": "3:15 to 3:25",
-   "start": 194.0,
+   "start": 197.6,
    "duration": 12.0,
    "narration": "AltermagAgent is free and open, under Apache 2.0. On 20 synthetic trees with known answers it scored 100 percent on phase and status, and 98.5 percent on parents. Run it on your own folders."
   }
