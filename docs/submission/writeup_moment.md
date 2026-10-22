@@ -78,6 +78,8 @@ The demo tree is synthetic, so no VASP is needed; `altermag gui` opens the inter
 The CrSe and MnTe data were computed by Diana Golovanova with VASP (PAW, GGA-PBE) and Wannier90 through VASP2WANNIER90.
 Symmetry analysis uses spglib, spinspg and FINDSYM; full references for these and the other codes are in the README.
 
+With thanks to two hackathon sponsors: Valency, whose MCP platform powers the built-in literature search, and marimo, which runs the walkthrough notebook.
+
 ## Links
 
 - Repository: https://github.com/joshbarron-36/altermagagent
