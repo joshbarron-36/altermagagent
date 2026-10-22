@@ -8,6 +8,7 @@ AltermagAgent reads old VASP folder trees without changing them and says which c
 
 - **Branch graph:** runs grouped by structure, magnetic realization and SOC, drawn like a git history; each parent link gives a reason, candidates or "unknown".
 - **Evidence tags:** every summary point names its files and carries a tag: output found, parsed, validated or insufficient evidence.
+- **Fast visualization:** The GUI makes key information, such as the current crystal, magnetization, and band structure plots, easily accessible with one click after you open your working project.
 - **Six-step suggestions** per branch, from structure to transport, each done, partial or missing, then the next calculation.
 - **Define MSG:** spglib computes the magnetic space group from the moments and compares it with the user's findsym.log, or writes findsym.in.
 - **Wannier comparison** by Diana Golovanova: Wannier bands against VASP bands, with mean and maximum error.
@@ -50,9 +51,13 @@ AltermagAgent reads old VASP folder trees without changing them and says which c
 
 ## Next steps
 
+- Symmetry-resolved transport components
+- Including band and spin projections
+- Presentation of intrinsic conductivity calculations
 - Spin group analysis next to the magnetic space group.
-- SSH access to computing clusters, so the tool can read running projects where they live.
+- SSH access to computing clusters, so the tool can read running projects where they live. Now you can connect to the cluster using an SSH connection in VS Code.
 - Planning of new calculations: from the suggested next step to a prepared, checked input folder.
+- Add the possibility to work with Quantum Monte Carlo output files.
 
 ## Reproduce in five commands
 
