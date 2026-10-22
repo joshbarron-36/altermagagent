@@ -297,6 +297,9 @@ Wannier Hamiltonian symmetrisation, used to generate input data, not run by Alte
 Magnetic symmetry files (findsym.in, findsym.log), generated with Symmetr, not run by AltermagAgent:
 
 - Symmetr: J. Železný, "Symmetr: a Python package for determining symmetry properties of crystals", Comput. Phys. Commun. 328, 110309 (2026), https://doi.org/10.1016/j.cpc.2026.110309, code at https://github.com/zeleznyj/symmetr (preprint arXiv:2602.21034)
+- Symmetr internally uses FINDSYM, developed by Harold Stokes and Dorian Hatch, to determine crystal symmetry:
+  H. T. Stokes and D. M. Hatch, "FINDSYM: program for identifying the space-group symmetry of a crystal", J. Appl. Cryst. 38, 237-238 (2005), https://doi.org/10.1107/S0021889804031528
+  H. T. Stokes, D. M. Hatch, and B. J. Campbell, FINDSYM, ISOTROPY Software Suite, iso.byu.edu.
 
 ### Analysis dependencies
 
