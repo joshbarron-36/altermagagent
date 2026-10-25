@@ -118,15 +118,17 @@ def read_moments(run_dir, n_sites, notes):
         raw = [[1.0, 1.0, 1.0]] * n_sites if soc else [1.0] * n_sites
         notes.append("No MAGMOM in INCAR; VASP's default of 1 μB per atom (1 1 1 for SOC) is drawn.")
     raw = list(raw)
-    if soc and raw and not isinstance(raw[0], (list, tuple)):
-        if len(raw) % 3:
-            notes.append(f"SOC run but MAGMOM has {len(raw)} numbers, not a multiple of 3; no arrows drawn.")
-            return None, raw, soc, saxis
-        raw = [raw[i:i + 3] for i in range(0, len(raw), 3)]
-    if len(raw) != n_sites:
-        notes.append(f"MAGMOM has {len(raw)} entries but the structure has {n_sites} sites; no arrows drawn.")
+    if soc and raw and isinstance(raw[0], (list, tuple)):
+        raw = [value for moment in raw for value in moment]
+    needed = 3 * n_sites if soc else n_sites
+    if len(raw) < needed:
+        notes.append(f"MAGMOM has {len(raw)} numbers but {needed} are needed for {n_sites} sites; no arrows drawn.")
         return None, raw, soc, saxis
+    if len(raw) > needed:
+        notes.append(f"MAGMOM has extra values after the {n_sites} sites; only the first {needed} numbers are used.")
+        raw = raw[:needed]
     if soc:
+        raw = [raw[i:i + 3] for i in range(0, needed, 3)]
         vecs = np.array(raw, dtype=float)
         if saxis is not None and not np.allclose(np.array(saxis, float) / np.linalg.norm(saxis), [0, 0, 1]):
             vecs = np.array([saxis_to_cartesian(v, np.array(saxis, float)) for v in vecs])

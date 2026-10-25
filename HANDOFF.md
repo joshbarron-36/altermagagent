@@ -1,4 +1,29 @@
 # Handoff note
+
+## Structure moment parsing, 25 October 2026
+
+- Fixed `altermagagent/structure.py` to ignore surplus MAGMOM values after all atoms have moments.
+- Noncollinear input consumes three numbers per atom; collinear input consumes one.
+- Too few values still produce an explanatory note and no arrows.
+- Added seven regression tests for surplus values, repeats, continued lines, SAXIS rotation and saved figures with supercell arrows.
+- Full check: `.venv/bin/python -m unittest discover -s tests` ran 53 tests with no failures and eight skips.
+- Existing structure figures remain cached in the interface.
+- Regenerate an affected figure with `altermag structure <project> <run_name>` and refresh the browser after restarting the server.
+- Scanned calculation folders and the project index were not changed.
+
+## GUI summary order investigation, 25 October 2026
+
+- The server on port 8080 uses this repository through its editable `.venv` installation.
+- The current summary builder puts Structures investigated first.
+- The GUI renders `projects.summary_json` in its saved order without rebuilding it.
+- CrSe and 13-CrSb retain the older order: Magnetic, SOC, Hamiltonian, Structures, Symmetries, Transport, Status, Last update.
+- MnTe-test already stores the current order: Structures, Magnetic, Symmetries, SOC, Hamiltonian, Transport, Status, Last update.
+- Local HTTP responses from the same server confirmed the different orders for CrSe and MnTe-test.
+- Re-importing each affected project under its existing name regenerates its summary with the current code.
+- Refreshing the browser or restarting the server alone does not regenerate stored summaries.
+- This was an investigation only; application code, the index and scanned folders were not changed.
+- Next: regenerate affected summaries or add an explicit summary cache migration when updating the application. Add option of rescaning the project. Add option of deleting the object from menu.
+
 ## Where things stand, 21 October 16:45 EDT (read this first)
 
 - Repository main has everything built today: importer, storyline with evidence tags, diagnosis block, benchmark with negative fixture, band and structure figures, chat with hosted model or Ollama, README, video script, write-up draft, public post text.
