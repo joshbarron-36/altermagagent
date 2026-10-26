@@ -1,5 +1,19 @@
 # Handoff note
 
+## Status for Diana, 26 October 2026
+
+- Main now holds your MAGMOM fix (pull request 1), the rescan and delete actions, and the spin projection step. Main is 1e2eb10.
+- Main's history was rewritten twice on 26 October to replace personal email addresses by GitHub no-reply addresses. Please re-clone, or run `git fetch origin` and `git reset --hard origin/main` on a clean checkout.
+- Your commit kept its content, message and date; only the author line changed. Please set `git config --global user.email` to your GitHub no-reply address so future commits need no rewrite.
+- Rule for everyone: no personal or work email address in any commit, file or message of this repository. Merges into main are done locally by Josh after the tests, never through the GitHub website.
+- Request 1, rescan and delete: done, see the section "Rescan and delete, 26 October 2026". Run `altermag rescan CrSe` and `altermag rescan 13-CrSb` once to rebuild the old summary order.
+- Request 2, spin projection: done, see the section "Spin projection, 26 October 2026". On your coplanar no-SOC CrSe Wannier run it matches your script's sigma_z to 1.3e-10 on the same k-points.
+- Request 3, the orbital-projected band plotter from vasprun.xml: not started. It will be a separate package on its own branch, built in the three stages of your specification, after your go on the scope.
+- Please check: the spin order of the raw VASP Hamiltonians is assumed udud (up, down per orbital); your symmetrised file says "permuted uudd->udud" in its header, so it is read as udud too. Tell us if either is wrong.
+- Please check: in the index on Josh's laptop the no-SOC Wannier run of CrSe_real had no parent band run, so the spin button stayed hidden until the parent was set in the interface. Say if the importer should have found it.
+- Working convention from now on: one branch per task, a dated section at the top of this file, a pull request to main. Josh's session reviews, tests and merges, then writes its own section here.
+- Tests on main: `python -m unittest discover -s tests` runs 76 tests, OK, one skip.
+
 ## Spin projection, 26 October 2026
 
 - Added `altermag spin-projection`, based on Diana's reconstruct_spin_sz_bands.py, in `altermagagent/spin_projection.py`.
