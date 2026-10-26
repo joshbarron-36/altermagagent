@@ -83,6 +83,7 @@ altermag literature <project>                # published papers found by search,
 altermag bands <project> <run> [--emin -3] [--emax 3] [--style paper]
 altermag structure <project> <run> [--supercell 1 1 1]
 altermag compare-wannier <project> [path/to/wannier90_hr.dat] [--run-name <run>]
+altermag spin-projection <project> [hr_file] [--run-name <run>] [--component x|y|z|all] [--order udud|uudd]
 altermag gui [--port 8080]                   # start the browser interface
 ```
 

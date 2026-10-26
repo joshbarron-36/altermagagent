@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import re
+from collections import namedtuple
 from pathlib import Path
 from uuid import uuid4
 
@@ -105,14 +106,20 @@ def ancestry(run, by_name):
     return chain
 
 
+# No band run qualifies as the reference of a Wannier run.
+class NoReference(ValueError):
+    """Raised when no same-structure band run can serve as the comparison reference."""
+
+
 # Identify band runs without guessing from directory names.
 def is_band(run):
     details = run.get("details") or {}
     return details.get("phase") == "band" or details.get("kind") == "bands"
 
 
-# Select a literal band ancestor or an unambiguous earlier band run sharing an SCF ancestor.
-def select_reference(wannier_run, runs, reference_run=None):
+# Select a literal band ancestor or an unambiguous earlier band run sharing an SCF ancestor; optionally the latest one.
+# Returns the reference, the lineage, the Wannier run's ancestor chain and its parsed POSCAR structure.
+def select_reference(wannier_run, runs, reference_run=None, latest_if_ambiguous=False):
     from pymatgen.io.vasp import Poscar
 
     by_name = {r["name"]: r for r in runs}
@@ -135,6 +142,7 @@ def select_reference(wannier_run, runs, reference_run=None):
         except (OSError, ValueError):
             continue
         compatible.append(run)
+    note = None
     if reference_run:
         reference = next((r for r in compatible if r["name"] == reference_run), None)
         if reference is None:
@@ -143,17 +151,21 @@ def select_reference(wannier_run, runs, reference_run=None):
         reference = direct[0]
     elif len(compatible) == 1:
         reference = compatible[0]
+    elif compatible and latest_if_ambiguous:
+        reference = max(compatible, key=lambda r: r["seq"])
+        note = f"several eligible band runs; the latest, {reference['name']}, was used"
     else:
         names = ", ".join(r["name"] for r in compatible) or "none"
-        raise ValueError(f"No unique same-structure reference (eligible runs: {names}). "
-                         "Use --reference-run to resolve candidates; correct unknown parents with altermag parent.")
+        raise NoReference(f"No unique same-structure reference (eligible runs: {names}). "
+                          "Use --reference-run to resolve candidates; correct unknown parents with altermag parent.")
     ref_chain = ancestry(reference, by_name)
     common = next((r for r in chain if r["name"] in {x["name"] for x in ref_chain}), None)
     return reference, {"relation": "band ancestor" if reference in direct else "shared SCF ancestor",
                        "wannier_ancestors": [r["name"] for r in chain],
                        "reference_ancestors": [r["name"] for r in ref_chain],
                        "common_ancestor": common["name"] if common else None,
-                       "parent_notes": {r["name"]: r.get("parent_note") for r in [wannier_run, *chain, reference, *ref_chain]}}, chain
+                       "parent_notes": {r["name"]: r.get("parent_note") for r in [wannier_run, *chain, reference, *ref_chain]},
+                       "selection_note": note}, chain, structure
 
 
 # Find the requested Hamiltonian and its most specific indexed owner without a latest-run guess.
@@ -230,12 +242,17 @@ def control_flags(text):
             for key, value in re.findall(r"(use_ws_distance|write_ndegen_applied)\s*[=:]\s*(\.?\w+\.?)", text, re.I)}
 
 
+# The seedname.win and seedname_wsvec.dat paths next to a seedname_hr.dat file.
+def companion_files(path):
+    seed = path.name.split("_hr", 1)[0]
+    return path.with_name(seed + ".win"), path.with_name(seed + "_wsvec.dat")
+
+
 # Fold pair-dependent superlattice translations once into effective real-space matrices.
 def interpolation_terms(path, hr, use_ws_distance=None):
     from .importer import read_win
 
-    seed = path.name.split("_hr", 1)[0]
-    win, wsvec = path.with_name(seed + ".win"), path.with_name(seed + "_wsvec.dat")
+    win, wsvec = companion_files(path)
     flags = {}
     if win.is_file():
         settings = read_win(win)
@@ -304,13 +321,12 @@ def interpolation_terms(path, hr, use_ws_distance=None):
                 "convention_note": None if use_ws or applied or declared_false else WS_FALLBACK_NOTE}
 
 
-# Fourier transform and diagonalize at the exact reference k-points, rejecting non-Hermitian results.
-def interpolate(hr, kfrac):
+# Call visit(index, Hermitian part of H(k)) at each fractional k-point; return the largest Hermiticity residual.
+def hamiltonians(hr, kfrac, visit):
     kfrac = np.asarray(kfrac, dtype=float)
     if kfrac.ndim != 2 or kfrac.shape[1] != 3 or not np.isfinite(kfrac).all():
         raise ValueError("Expected finite fractional k-points with shape (n, 3).")
     nw = hr["num_wann"]
-    result = np.empty((len(kfrac), nw))
     weighted = hr["matrices"] / hr["degeneracies"][:, None, None]
     max_residual = 0.0
     for start in range(0, len(kfrac), 32):
@@ -318,11 +334,23 @@ def interpolate(hr, kfrac):
         block = (phases @ weighted.reshape(len(weighted), -1)).reshape(-1, nw, nw)
         for local, hk in enumerate(block):
             residual = float(np.max(np.abs(hk - hk.conj().T)))
-            max_residual = max(max_residual, residual)
             if residual > HERMITIAN_TOL_EV:
                 raise ValueError(f"Non-Hermitian H(k) at k-point {start + local + 1}: residual {residual:g} eV.")
-            result[start + local] = np.linalg.eigvalsh((hk + hk.conj().T) / 2)
-    return result.T, max_residual
+            max_residual = max(max_residual, residual)
+            visit(start + local, (hk + hk.conj().T) / 2)
+    return max_residual
+
+
+# Fourier transform and diagonalize at the exact reference k-points, rejecting non-Hermitian results.
+def interpolate(hr, kfrac):
+    result = np.empty((len(kfrac), hr["num_wann"]))
+
+    # Store the eigenvalues of one H(k) in its row.
+    def store(ik, hk):
+        result[ik] = np.linalg.eigvalsh(hk)
+
+    residual = hamiltonians(hr, kfrac, store)
+    return result.T, residual
 
 
 # Expand reciprocal line-mode KPOINTS and preserve every branch boundary and duplicate endpoint.
@@ -352,6 +380,11 @@ def reference_path(folder, structure):
         raise ValueError("The reference k-path has zero length.")
     return {"kfrac": np.asarray(frac), "x": np.asarray(distance), "branches": branches,
             "ticks": bands.build_ticks(ticks, offset)}
+
+
+# True for a spin-polarised collinear INCAR mapping: ISPIN 2 without LSORBIT and without LNONCOLLINEAR.
+def collinear_polarised(incar):
+    return incar.get("ISPIN", 1) == 2 and not (incar.get("LSORBIT") or incar.get("LNONCOLLINEAR"))
 
 
 # Read absolute VASP eigenvalues or undo the recorded VASPKIT energy shift.
@@ -387,8 +420,7 @@ def load_reference(folder, structure, spin=None):
                 data["x"] / data["x"][-1], atol=1e-5, rtol=0):
             raise ValueError("VASPKIT distances disagree with the ancestor KPOINTS path.")
         from pymatgen.io.vasp import Incar
-        incar = Incar.from_file(folder / "INCAR")
-        if incar.get("ISPIN", 1) == 2 and not (incar.get("LSORBIT") or incar.get("LNONCOLLINEAR")):
+        if collinear_polarised(Incar.from_file(folder / "INCAR")):
             raise ValueError("Spin-polarised VASPKIT tables need EIGENVAL or vasprun.xml to identify spin columns.")
         if spin == "down":
             raise ValueError("The reference table contains a single channel; spin down is unavailable.")
@@ -497,11 +529,8 @@ def draw_overlay(data, wannier, result, paths):
                 for xs, ys in bands.segments(data["x"], band, data["branches"]):
                     axis.plot(xs, ys, color=colour, ls=style, lw=0.8, label=label if first else None)
                     first = False
-        for position, _ in data["ticks"]:
-            axis.axvline(position, color="0.85", lw=0.6, zorder=0)
-        axis.axhline(0, color="#2166ac", ls=":", lw=0.8)
-        axis.set_xticks([x for x, _ in data["ticks"]], [bands.mpl_label(label) for _, label in data["ticks"]])
-        axis.set(xlim=(data["x"][0], data["x"][-1]), ylim=ylim, ylabel=r"$E-E_F$ (eV)", xlabel="Wave vector")
+        bands.decorate_band_axes(axis, data, ylim, zero_colour="#2166ac")
+        axis.set_xlabel("Wave vector")
     axes[0].set_title(f"{result['wannier_run']} versus {result['reference_run']}", fontsize=9)
     axes[1].set_title(f"error window {result['metric_emin']:g} to {result['metric_emax']:g} eV", fontsize=9)
     axes[0].legend(loc="lower right", fontsize=8)
@@ -556,33 +585,76 @@ def auto_band_start(reference, wannier, hr_path, emin, emax):
     return best, f"band offset {best} chosen by smallest error, not verified"
 
 
-# Validate lineage and inputs, calculate the overlay, and write only outside every indexed data root.
-def compare_wannier(project, hr_file=None, run_name=None, reference_run=None, emin=-3.0, emax=3.0,
-                    out_dir=None, structure_only=False, fermi_eV=None, spin=None, band_start=None,
-                    window=None, use_ws_distance=None):
+Prepared = namedtuple("Prepared", "hr_path run reference lineage chain structure checks failed data spin fermi fermi_source "
+                                   "hr convention out emin emax notes")
+
+
+# Spin channel "up" with a note when the reference INCAR is spin-polarised and collinear (ISPIN 2, no SOC, no LNONCOLLINEAR).
+def collinear_reference_spin(reference):
+    from pymatgen.io.vasp import Incar
+
+    incar_path = Path(reference["path"]) / "INCAR"
+    if incar_path.is_file() and collinear_polarised(Incar.from_file(incar_path)):
+        return "up", "spin-up channel of the reference used for the k-path and Fermi level"
+    return None, None
+
+
+# Shared setup of a Wannier comparison or projection: Hamiltonian, output guard, reference bands, Fermi level and H(R).
+def prepare(project, hr_file=None, run_name=None, reference_run=None, emin=-3.0, emax=3.0, out_dir=None, fermi_eV=None,
+            latest_if_ambiguous=False, spin=None, structure_only=None, use_ws_distance=None, ws_fallback=False):
     project_info = db.get_project(project)
     if project_info is None:
         raise ValueError(f"Project {project} is not indexed; run altermag import first.")
     emin, emax = float(emin), float(emax)
     if not np.isfinite([emin, emax]).all() or emin >= emax:
         raise ValueError("The energy window must have finite emin < emax.")
+    runs = db.get_runs(project)
+    hr_path, run = locate_hamiltonian(project_info, runs, hr_file, run_name)
+    out = Path(out_dir).expanduser() if out_dir else bands.default_out_dir(run["path"], project)
+    bands.refuse_inside_root(out, [p["root"] for p in db.list_projects()],
+                             "Refusing to write inside a scanned data root; choose --out-dir outside all indexed projects.")
+    reference, lineage, chain, structure = select_reference(run, runs, reference_run, latest_if_ambiguous)
+    notes = [lineage["selection_note"]] if lineage["selection_note"] else []
+    checks, failed = None, []
+    if structure_only is not None:
+        structure, checks, failed = check_inputs(run, reference, structure_only)
+    if spin in (None, "auto"):
+        spin, note = collinear_reference_spin(reference)
+        notes += [note] if note else []
+    data = load_reference(Path(reference["path"]), structure, spin)
+    fermi, fermi_source = common_fermi(chain, lineage, data, reference, fermi_eV)
+    hr = read_hr(hr_path)
+    fallback = ws_fallback and use_ws_distance is None
+    if fallback and not companion_files(hr_path)[1].is_file():
+        use_ws_distance = False
+    try:
+        terms, convention = interpolation_terms(hr_path, hr, use_ws_distance)
+    except ValueError as exc:
+        if not (fallback and use_ws_distance is None and "wsvec" in str(exc)):
+            raise
+        terms, convention = interpolation_terms(hr_path, hr, False)
+        notes.append(f"seedname_wsvec.dat unusable ({exc}); retried without Wigner-Seitz distances")
+        convention["convention_note"] = convention["convention_note"] or WS_FALLBACK_NOTE
+    hr = terms
+    if convention["convention_note"]:
+        notes.append(convention["convention_note"])
+    return Prepared(hr_path, run, reference, lineage, chain, structure, checks, failed, data, spin, fermi, fermi_source,
+                    hr, convention, out, emin, emax, notes)
+
+
+# Validate lineage and inputs, calculate the overlay, and write only outside every indexed data root.
+def compare_wannier(project, hr_file=None, run_name=None, reference_run=None, emin=-3.0, emax=3.0,
+                    out_dir=None, structure_only=False, fermi_eV=None, spin=None, band_start=None,
+                    window=None, use_ws_distance=None, latest_if_ambiguous=False, ws_fallback=False):
     if spin not in (None, "up", "down"):
         raise ValueError("spin must be up or down.")
     if not isinstance(structure_only, bool):
         raise ValueError("structure_only must be a boolean.")
-    runs = db.get_runs(project)
-    hr_path, run = locate_hamiltonian(project_info, runs, hr_file, run_name)
-    out = Path(out_dir).expanduser() if out_dir else bands.default_out_dir(run["path"], project)
-    roots = [p["root"] for p in db.list_projects()]
-    if any(bands.inside(out, root) for root in roots):
-        raise ValueError("Refusing to write inside a scanned data root; choose --out-dir outside all indexed projects.")
-    reference, lineage, chain = select_reference(run, runs, reference_run)
-    structure, checks, failed = check_inputs(run, reference, structure_only)
-    data = load_reference(Path(reference["path"]), structure, spin)
-    hr = read_hr(hr_path)
-    hr, convention = interpolation_terms(hr_path, hr, use_ws_distance)
+    prep = prepare(project, hr_file, run_name, reference_run, emin, emax, out_dir, fermi_eV, latest_if_ambiguous, spin,
+                   structure_only, use_ws_distance, ws_fallback)
+    run, reference, data, hr, convention = prep.run, prep.reference, prep.data, prep.hr, prep.convention
+    hr_path, failed, fermi, emin, emax = prep.hr_path, prep.failed, prep.fermi, prep.emin, prep.emax
     wannier, residual = interpolate(hr, data["kfrac"])
-    fermi, fermi_source = common_fermi(chain, lineage, data, reference, fermi_eV)
     data["energies"] = data["energies"] - fermi
     wannier -= fermi
     metric_emin, metric_emax = (-float(window), float(window)) if window else (emin, emax)
@@ -605,18 +677,17 @@ def compare_wannier(project, hr_file=None, run_name=None, reference_run=None, em
         notes.append(metrics["mapping_source"])
     if failed:
         notes.append("Preliminary overlay; input checks failed: " + ", ".join(failed))
-    if convention["convention_note"]:
-        notes.append(convention["convention_note"])
+    notes += prep.notes
     result = {"project": project, "wannier_run": run["name"], "reference_run": reference["name"],
               "hamiltonian": str(hr_path), "reference_source": data["source"], "original_figures": source_figures,
               "evidence_state": "preliminary: structure matched; required inputs differ or are missing" if failed
               else "input-matched comparison; interpolation quality requires researcher review",
-              "lineage": lineage, "input_checks": checks, "interpolation": convention,
+              "lineage": prep.lineage, "input_checks": prep.checks, "interpolation": convention,
               "kpath_evidence": data["kpath_evidence"], "n_kpoints": len(data["x"]), "num_wann": hr["num_wann"],
-              "spin": spin, "fermi_eV": fermi, "fermi_source": fermi_source, "emin": emin, "emax": emax,
+              "spin": prep.spin, "fermi_eV": fermi, "fermi_source": prep.fermi_source, "emin": emin, "emax": emax,
               "metric_emin": metric_emin, "metric_emax": metric_emax,
               "max_hermiticity_residual_eV": residual, "metrics": metrics, "notes": notes}
-    folder = out / (bands.slug(run["name"]) + "_wannier_compare_" + uuid4().hex)
+    folder = prep.out / (bands.slug(run["name"]) + "_wannier_compare_" + uuid4().hex)
     folder.mkdir(parents=True, exist_ok=False)
     paths = {kind: str(folder / ("overlay." + kind)) for kind in ("png", "pdf", "svg", "json", "csv")}
     result["paths"] = paths
@@ -642,18 +713,16 @@ def hr_kind(path):
     return "symmetrised" if "wannier_sym" in Path(path).parts or "symm" in header.lower() else "raw"
 
 
-# Run compare_wannier, falling back to the named direct-HR convention without wsvec, and to preliminary only if allowed.
+# Run compare_wannier with the direct-HR fallback when wsvec is absent, and as a preliminary overlay only if allowed.
 def run_comparison(project, allow_preliminary=False, **kw):
     notes = []
-    for _ in range(3):
+    for _ in range(2):
         try:
-            res = compare_wannier(project, **kw)
+            res = compare_wannier(project, ws_fallback=True, **kw)
             break
         except ValueError as exc:
             text = str(exc)
-            if "wsvec" in text and kw.get("use_ws_distance") is None:
-                kw["use_ws_distance"] = False
-            elif "Required input equality failed" in text and allow_preliminary and not kw.get("structure_only"):
+            if "Required input equality failed" in text and allow_preliminary and not kw.get("structure_only"):
                 kw["structure_only"] = True
                 notes.append(text.split(" Use --structure-only")[0])
             else:
@@ -680,20 +749,11 @@ def band_match(project, run_name, compute=True, window=BAND_MATCH_WINDOW_EV):
     cached = db.get_band_match(project, run_name, key)
     if cached is not None or not compute:
         return cached
-    reference = None
     try:
-        select_reference(run, runs)
-    except (OSError, ValueError) as exc:
-        eligible = re.search(r"eligible runs: ([^)]*)\)", str(exc))
-        names = [n for n in eligible.group(1).split(", ") if n != "none"] if eligible else []
-        if not names:
-            out = {"status": "no_reference", "reason": str(exc)}
-            db.set_band_match(project, run_name, key, out)
-            return out
-        reference = names[-1]
-    try:
-        res = run_comparison(project, allow_preliminary=True, run_name=run_name, reference_run=reference,
+        res = run_comparison(project, allow_preliminary=True, run_name=run_name, latest_if_ambiguous=True,
                              band_start="auto", window=window)
+    except NoReference as exc:
+        out = {"status": "no_reference", "reason": str(exc)}
     except Exception as exc:
         out = {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
     else:
@@ -701,10 +761,14 @@ def band_match(project, run_name, compute=True, window=BAND_MATCH_WINDOW_EV):
         out = {"status": "ok" if m else "no_mapping", "reference_run": res["reference_run"], "metrics": m,
                "window": [res["metric_emin"], res["metric_emax"]], "png": res["paths"]["png"],
                "json": res["paths"]["json"], "evidence_state": res["evidence_state"], "hr_kind": res["hr_kind"],
-               "fallbacks": res["fallbacks"] + ([f"several eligible band runs; the latest, {reference}, was used"]
-                                                if reference else [])}
+               "fallbacks": res["fallbacks"] + [n for n in [res["lineage"]["selection_note"]] if n]}
     db.set_band_match(project, run_name, key, out)
     return out
+
+
+# True when the band match read wannier90_hr.dat: status "ok" or "no_mapping".
+def hr_parsed(res):
+    return bool(res) and res.get("status") in ("ok", "no_mapping")
 
 
 # One-line text of a band-match result for the suggestions step (e).

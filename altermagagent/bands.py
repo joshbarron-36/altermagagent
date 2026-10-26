@@ -176,6 +176,13 @@ def inside(path, folder):
     return path == folder or folder in path.parents
 
 
+# Raise ValueError(message) when out lies inside any of the roots; {root} in the message names the folder.
+def refuse_inside_root(out, roots, message):
+    for root in roots:
+        if inside(out, root):
+            raise ValueError(message.format(root=root))
+
+
 # Read KPOINTS and say whether it is line mode with labels, without raising.
 def kpoints_line_labels(kpath):
     from pymatgen.io.vasp import Kpoints
@@ -288,6 +295,15 @@ def segments(x, y, branches):
     return [(x[a:b + 1], y[a:b + 1]) for a, b in branches]
 
 
+# Shared decoration of a band panel: tick lines, dotted zero line, k-point labels, x range, y range and energy label.
+def decorate_band_axes(axis, data, ylim, zero_colour):
+    for position, _ in data["ticks"]:
+        axis.axvline(position, color="0.85", lw=0.6, zorder=0)
+    axis.axhline(0, color=zero_colour, ls=":", lw=0.8)
+    axis.set_xticks([x for x, _ in data["ticks"]], [mpl_label(label) for _, label in data["ticks"]])
+    axis.set(xlim=(data["x"][0], data["x"][-1]), ylim=ylim, ylabel=r"$E-E_F$ (eV)")
+
+
 # Return True when any two neighbouring x tick labels overlap on the drawn figure.
 def ticks_overlap(fig, ax):
     renderer = fig.canvas.get_renderer()
@@ -393,12 +409,10 @@ def plot_bands(run_dir, emin=-3.0, emax=3.0, style="paper", out_dir=None, projec
         raise FileNotFoundError(f"No vasprun.xml in {run_dir}.")
     run_name = run_name or run_dir.name
     out = Path(out_dir).expanduser() if out_dir else default_out_dir(run_dir, project)
-    if inside(out, run_dir):
-        raise ValueError(f"Refusing to write into the run folder {run_dir}; choose an output folder outside it.")
+    refuse_inside_root(out, [run_dir], "Refusing to write into the run folder {root}; choose an output folder outside it.")
     if project:
         p = db.get_project(project)
-        if p and inside(out, p["root"]):
-            raise ValueError(f"Refusing to write inside the scanned project folder {p['root']}.")
+        refuse_inside_root(out, [p["root"]] if p else [], "Refusing to write inside the scanned project folder {root}.")
     notes = []
     data = load_bands(run_dir, notes)
     nb, nk = next(iter(data["bands"].values())).shape

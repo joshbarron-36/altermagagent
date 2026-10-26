@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from . import db
-from .bands import default_out_dir, inside, slug
+from .bands import default_out_dir, refuse_inside_root, slug
 from .files import display_path
 
 FALLBACK_COLOURS = ["#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#bcf60c"]
@@ -240,12 +240,10 @@ def plot_structure(run_dir, out_dir=None, supercell=(1, 1, 1), project=None, run
     run_dir = Path(run_dir)
     run_name = run_name or run_dir.name
     out = Path(out_dir).expanduser() if out_dir else default_out_dir(run_dir, project)
-    if inside(out, run_dir):
-        raise ValueError(f"Refusing to write into the run folder {run_dir}; choose an output folder outside it.")
+    refuse_inside_root(out, [run_dir], "Refusing to write into the run folder {root}; choose an output folder outside it.")
     if project:
         p = db.get_project(project)
-        if p and inside(out, p["root"]):
-            raise ValueError(f"Refusing to write inside the scanned project folder {p['root']}.")
+        refuse_inside_root(out, [p["root"]] if p else [], "Refusing to write inside the scanned project folder {root}.")
     notes = []
     structure, sfile = read_structure(run_dir, notes)
     vecs, raw, soc, saxis = read_moments(run_dir, len(structure), notes)

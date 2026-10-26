@@ -1,17 +1,12 @@
 """Rescan and delete of indexed projects: the index changes, the data folders are only read."""
 
-import os
 import shutil
-import subprocess
-import sys
-import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from _fixtures import demo_tree, temp_index
 from altermagagent import cli, db, importer
-
-REPO = Path(__file__).resolve().parents[1]
 
 
 class RescanDelete(unittest.TestCase):
@@ -20,10 +15,7 @@ class RescanDelete(unittest.TestCase):
     # Write the demo tree once into a temporary folder.
     @classmethod
     def setUpClass(cls):
-        cls.tmp = tempfile.TemporaryDirectory()
-        cls.demo = Path(cls.tmp.name) / "CrSe_demo"
-        subprocess.run([sys.executable, str(REPO / "demo" / "make_demo.py"), "--out", str(cls.demo)],
-                       check=True, capture_output=True)
+        cls.tmp, cls.demo = demo_tree()
 
     # Remove the temporary folder.
     @classmethod
@@ -32,11 +24,7 @@ class RescanDelete(unittest.TestCase):
 
     # Point the index at a fresh temporary home for each test.
     def setUp(self):
-        home = Path(tempfile.mkdtemp(dir=self.tmp.name)) / "home"
-        for p in (patch.object(db, "HOME_DIR", home), patch.object(db, "DB_PATH", home / "index.sqlite"),
-                  patch.dict(os.environ, {"ALTERMAG_HOME": str(home)})):
-            p.start()
-            self.addCleanup(p.stop)
+        temp_index(self, self.tmp.name)
 
     # Count the rows of one table that belong to a project.
     def rows(self, table, name):

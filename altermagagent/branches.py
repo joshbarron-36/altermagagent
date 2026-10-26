@@ -560,12 +560,15 @@ def suggestions(branch, runs, project=None, root=None, logs=None, compute_band_m
         else:
             ev.append(f'band match check: comparison available ({w["name"]}/wannier90_band.dat)' if "wannier90_band.dat" in names
                       else "band match check: not checked (no wannier90_band.dat)")
-        ev.append("spin projections: not checked")
+        from .spin_projection import spin_entry
+        spin = spin_entry(w["name"], bm)
+        ev.append(spin["line"])
         winfo = win_info(w)
         if winfo:
             ev.append(f"wannier90.win: {winfo}")
         steps.append(step("e", DONE if sym else PARTIAL, ev))
         steps[-1]["band_match"] = {"run": w["name"], "result": bm, "pending": bool(project) and bm is None}
+        steps[-1]["spin"] = spin
     elif wan:
         steps.append(step("e", PARTIAL, [f'{r["name"]}: Wannier90 input, no wannier90_hr.dat' for r in wan]))
     else:

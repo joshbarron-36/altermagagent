@@ -1,13 +1,17 @@
 """Wannier comparison: read_hr and error_metrics on a tiny synthetic Hamiltonian, and the demo tree Hamiltonian."""
 
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 import numpy as np
 
-from altermagagent.wannier_compare import (WS_FALLBACK_NOTE, auto_band_start, band_match_text, error_box_text,
-                                           error_metrics, interpolate, interpolation_terms, read_hr)
+from _fixtures import collinear_wannier_project, demo_tree, temp_index
+from test_spin_projection import spinor_hr
+from altermagagent.wannier_compare import (WS_FALLBACK_NOTE, auto_band_start, band_match, band_match_text, error_box_text,
+                                           error_metrics, interpolate, interpolation_terms, read_hr, run_comparison,
+                                           select_reference)
 
 DEMO_HR = Path(__file__).resolve().parents[1] / "demo" / "CrSe_demo"
 
@@ -111,6 +115,59 @@ class WannierCompare(unittest.TestCase):
         except ValueError as exc:
             self.skipTest(f"demo wannier90_hr.dat is a header excerpt, not a full matrix ({exc})")
         self.fail("demo Hamiltonian unexpectedly complete; add a real comparison test")
+
+
+class WannierCompareProject(unittest.TestCase):
+    """Band match, wsvec fallback and reference choice on copies of the demo tree."""
+
+    # Write the demo tree once into a temporary folder.
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp, cls.demo = demo_tree()
+
+    # Remove the temporary folder.
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    # Point the index and the default figure folder at a fresh temporary home for each test.
+    def setUp(self):
+        self.home = temp_index(self, self.tmp.name)
+
+    # A collinear ISPIN 2 reference without SOC uses its spin-up channel, so band match reads the Hamiltonian.
+    def test_band_match_collinear_reference(self):
+        collinear_wannier_project(self.demo, self.tmp.name, "collinear_ref", spinor_hr("udud"), "num_wann = 4\nspinors = true\n")
+        res = band_match("collinear_ref", "wannier")
+        self.assertIn(res["status"], ("ok", "no_mapping"), res.get("reason"))
+        self.assertEqual(res["reference_run"], "bands_nosoc")
+        self.assertTrue(Path(res["png"]).is_relative_to(self.home))
+
+    # A present but truncated wannier90_wsvec.dat falls back to the direct-HR convention with the fallback note.
+    def test_truncated_wsvec_fallback(self):
+        collinear_wannier_project(self.demo, self.tmp.name, "bad_wsvec", spinor_hr("udud"), "num_wann = 4\nspinors = true\n",
+                                  wsvec_text=" written by wannier90\n    0    0    0    1    1\n")
+        res = run_comparison("bad_wsvec", allow_preliminary=True, run_name="wannier", band_start="auto")
+        self.assertFalse(res["interpolation"]["use_ws_distance"])
+        self.assertIn(WS_FALLBACK_NOTE, res["notes"])
+        self.assertTrue(any(n.startswith("seedname_wsvec.dat unusable (Truncated wsvec file.)") for n in res["notes"]))
+
+    # With several eligible ancestors the latest by sequence is chosen, not the oldest one at the end of the chain.
+    def test_latest_reference_by_seq(self):
+        root = Path(tempfile.mkdtemp(dir=self.tmp.name))
+        source = self.demo / "bands_nosoc"
+        runs = []
+        for seq, (name, parent) in enumerate([("old_bands", None), ("new_bands", "old_bands"), ("other_bands", "new_bands"),
+                                              ("wannier", "other_bands")], start=1):
+            folder = root / name
+            folder.mkdir()
+            shutil.copy(source / "POSCAR", folder / "POSCAR")
+            incar = (source / "INCAR").read_text()
+            folder.joinpath("INCAR").write_text(incar.replace("MAGMOM = 3 -3 0 0", "MAGMOM = 3 3 0 0") if name == "other_bands" else incar)
+            phase = "wannier" if name == "wannier" else "band"
+            runs.append({"name": name, "seq": seq, "parent": parent, "path": str(folder), "details": {"phase": phase}})
+        reference, lineage, _, _ = select_reference(runs[-1], runs, latest_if_ambiguous=True)
+        self.assertEqual(reference["name"], "new_bands")
+        self.assertIn("the latest, new_bands", lineage["selection_note"])
 
 
 if __name__ == "__main__":

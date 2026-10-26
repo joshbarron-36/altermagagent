@@ -1,5 +1,40 @@
 # Handoff note
 
+## Spin projection, 26 October 2026
+
+- Added `altermag spin-projection`, based on Diana's reconstruct_spin_sz_bands.py, in `altermagagent/spin_projection.py`.
+- It reads a Wannier Hamiltonian, builds H(k) on the k-path of the ancestor band run's KPOINTS and computes the averages of sigma_x, sigma_y and sigma_z per band and k-point.
+- The k-path, tick labels, Fermi level and reference choice are the same as in `altermag compare-wannier`, so the two figures line up.
+- Both commands share one setup function, `wannier_compare.prepare`; `select_reference(..., latest_if_ambiguous=True)` picks the band run with the highest sequence number when several qualify.
+- When the reference has ISPIN = 2 without SOC or LNONCOLLINEAR, its spin-up channel gives the k-path and Fermi level, and a note says so.
+- This rule applies to every caller without an explicit spin, so the band match in the suggestions no longer fails on such references.
+- A present but unreadable wannier90_wsvec.dat falls back to the direct-HR convention with a note, as before the shared setup.
+- Inside energy-degenerate groups (spread up to 1e-5 eV) each component is diagonalised with its own operator, so all three panels are well defined.
+- The JSON and the caption say "each component diagonalised inside degenerate groups"; the Pauli operators are applied as row swaps, not dense matrices.
+- Spinor check: the run's wannier90.win must not say spinors = false (the Wannier90 default when absent), and num_wann must be even.
+- When no wannier90.win is found, the result and the caption carry "wannier90.win not found; spinor basis assumed".
+- Spin order rule: udud is up, down per orbital; uudd is all up, then all down.
+- The order is read from the first header line ("permuted uudd->udud") or from the file name (_udud, _uudd); `--order` overrides it.
+- When nothing states the order, udud is used and marked "assumed" in the caption, the JSON and the printed line.
+- Caption: "Colours assume a diagonal spin operator in the Wannier basis, order udud (assumed)"; this is an assumption about the basis, not a measured spin.
+- For runs with LSORBIT = .TRUE. the caption adds "with SOC these are not the physical spin"; reading .spn spin matrices is not done.
+- Output: a PNG (three stacked panels with `--component all`) and a JSON with the order and its source, Fermi energy and source, window means of |sigma|, min, max, residual and caption.
+- Figures go to a new folder per call under `~/.altermagagent/figures/<project>`, never into a scanned folder, so two clicks never share a file.
+- Run: `altermag spin-projection <project> --run-name <wannier run> [--emin -1] [--emax 1] [--component x|y|z|all] [--order udud|uudd]`.
+- Suggestions: step (e) shows "Next: spin projection of <run>/wannier90_hr.dat ..." only after the band comparison has read the Hamiltonian.
+- Interface: a "Spin projection" button next to Compare in the band match block opens the figure with the caption and the numbers.
+- Validation on CrSe coplanar no-SOC (`coplanar/1-noSOC/04_wannier`, 96 Wannier functions), in a temporary index with parent links set by hand.
+- On Wannier90's own 573 band.kpt points, sigma_z agrees with Diana's script to 1.3e-10 at most, and energies to 5e-11 eV, with Fermi 6.3344 eV and udud.
+- On the VASP KPOINTS path (640 points) the window -1 to 1 eV holds 8525 states; mean |sigma_z| 0.167, |sigma_x| 0.039, |sigma_y| 0.048.
+- With the per-component rotation (files _v3) sigma_z is unchanged; mean |sigma_x| rose by 1.0e-4 and mean |sigma_y| by 1.3e-4.
+- The two paths share their corners but not their points, so the per-point comparison was made on Wannier90's points.
+- Without a wsvec file the direct-HR convention is used, as in Diana's script, and the JSON says so.
+- Re-run after the clean-up gave the same window means, states and 640 points; the files carry a _v2 suffix in the validation folder.
+- Tests are in `tests/test_spin_projection.py` and `tests/test_wannier_compare.py`; shared setup is in `tests/_fixtures.py`.
+- The test home also redirects the default figure folder, so tests never write under `~/.altermagagent`.
+- Full check ran 76 tests, OK, one skip; sigma_z still agrees with Diana's script to 1.3e-10 on her 573 points.
+- Open: in the real index the no-SOC Wannier run has no parent link, so its band match has no reference and the suggestion stays hidden until a parent is set.
+
 ## Rescan and delete, 26 October 2026
 
 - Added `altermag rescan <project>`: it re-imports the project from its stored root folder under the same name.

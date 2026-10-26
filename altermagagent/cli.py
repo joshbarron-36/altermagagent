@@ -228,6 +228,24 @@ def cmd_compare_wannier(args):
     return 0
 
 
+# Spin projection of a Wannier Hamiltonian along the band k-path; prints the figure, the spin order and the window means.
+def cmd_spin_projection(args):
+    from .spin_projection import spin_projection, summary_lines
+    if db.get_project(args.project) is None:
+        print(f"No project named {args.project}. Run: altermag import <root> --name {args.project}", file=sys.stderr)
+        return 1
+    try:
+        res = spin_projection(args.project, hr_file=args.hr_file, run_name=args.run_name, reference_run=args.reference,
+                              emin=args.emin, emax=args.emax, component=args.component, order=args.order,
+                              out_dir=args.out_dir, fermi_eV=args.fermi_eV)
+    except (ValueError, OSError) as exc:
+        print(f"Spin projection failed: {exc}", file=sys.stderr)
+        return 1
+    print(f'Figure {display_path(res["paths"]["png"])}, data {display_path(res["paths"]["json"])}')
+    print("\n".join(summary_lines(res)))
+    return 0
+
+
 # Parse arguments and dispatch to the sub-command.
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="altermag", description="Read-only storylines of VASP projects.")
@@ -298,6 +316,19 @@ def main(argv=None):
                    help="explicit preliminary mode: allow INCAR differences and missing charge files")
     p.add_argument("--no-ws-distance", action="store_true", help="direct-HR convention, without wsvec")
     p.set_defaults(func=cmd_compare_wannier)
+    p = sub.add_parser("spin-projection", help="colour Wannier bands by <sigma_x>, <sigma_y>, <sigma_z> along the band k-path")
+    p.add_argument("project")
+    p.add_argument("hr_file", nargs="?", help="path to wannier90_hr.dat or a variant such as wannier_sym/wannier90_hr.dat_*")
+    p.add_argument("--run-name", "--run", dest="run_name", help="indexed Wannier run that owns wannier90_hr.dat")
+    p.add_argument("--reference-run", "--reference", dest="reference", help="ancestor band run whose k-path is used")
+    p.add_argument("--emin", type=float, default=-1.0, help="lowest energy relative to the Fermi level, eV")
+    p.add_argument("--emax", type=float, default=1.0, help="highest energy relative to the Fermi level, eV")
+    p.add_argument("--component", choices=["x", "y", "z", "all"], default="z", help="colouring component; all draws three panels")
+    p.add_argument("--order", choices=["udud", "uudd"],
+                   help="Wannier spin order; default from the file header or name, else udud marked as assumed")
+    p.add_argument("--fermi-eV", dest="fermi_eV", type=float, help="known common Fermi energy, eV")
+    p.add_argument("--out-dir", help="output folder outside all indexed roots, default ~/.altermagagent/figures/<project>")
+    p.set_defaults(func=cmd_spin_projection)
     p = sub.add_parser("gui", help="start the browser interface")
     p.add_argument("--port", type=int, default=8080)
     p.set_defaults(func=cmd_gui)

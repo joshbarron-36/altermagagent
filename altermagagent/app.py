@@ -409,6 +409,7 @@ class Page:
 
     # Replace the stored step (e) band-match line with the current cached result from the index.
     def refresh_band_match(self, sugg):
+        from .spin_projection import refresh_spin_step
         from .wannier_compare import band_match, band_match_text
         for st in sugg["steps"]:
             bm = st.get("band_match")
@@ -419,7 +420,9 @@ class Page:
             except Exception as exc:
                 res = {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
             bm.update(result=res, pending=res is None)
-            st["evidence"] = [band_match_text(res) if e.startswith(("band match", "preliminary: band match")) else e for e in st["evidence"]]
+            st["evidence"] = [band_match_text(res) if e.startswith(("band match", "preliminary: band match")) else e
+                              for e in st["evidence"]]
+            refresh_spin_step(st, bm["run"], res)
 
     # Step (e) band match: a Compare button for the figure, and the lazy first computation, cached in the index.
     def band_match_block(self, sugg):
@@ -430,6 +433,10 @@ class Page:
         with ui.element("div").classes("files"):
             with ui.element("button").classes("fbtn").on("click.stop", lambda _, n=bm["run"]: self.open_compare(n)):
                 raw(f'<span class="fl">Compare</span><span class="fn">{esc(bm["run"])} band match figure</span>', tag="span")
+            if (st.get("spin") or {}).get("available"):
+                with ui.element("button").classes("fbtn").on("click.stop", lambda _, n=bm["run"]: self.open_spin(n)):
+                    raw(f'<span class="fl">Spin projection</span><span class="fn">{esc(bm["run"])} sigma_x, sigma_y, sigma_z</span>',
+                        tag="span")
         if bm["pending"]:
             from .wannier_compare import band_match
             project = self.project
@@ -802,6 +809,35 @@ class Page:
                     'large Hamiltonians take about a minute...</p>')
             ui.timer(0.05, compute, once=True)
         dlg.open()
+
+    # Spin projection dialog: runs spin_projection off the event loop with defaults, then shows the figure and numbers.
+    def open_spin(self, name):
+        from . import spin_projection as sp
+        project = self.project
+
+        # Worker-thread part: the projection and the bytes of its PNG.
+        def project_and_read(project, name):
+            res = sp.spin_projection(project, run_name=name)
+            return res, Path(res["paths"]["png"]).read_bytes()
+
+        # Compute in a worker thread; open the figure dialog on success, a negative notify on failure.
+        async def compute():
+            ui.notify(f"Spin projection of {name}: reading wannier90_hr.dat, large Hamiltonians take about a minute...")
+            try:
+                res, png = await ng_run.io_bound(project_and_read, project, name)
+            except Exception as exc:
+                ui.notify(f"Spin projection failed: {type(exc).__name__}: {exc}", type="negative", multi_line=True)
+                return
+            dlg, body = self.dialog(f"Spin projection: {name}")
+            with body:
+                data = base64.b64encode(png).decode()
+                raw(f'<img src="data:image/png;base64,{data}" alt="spin projection of {esc(name)}">').classes("figure")
+                raw('<ul class="lines">' + "".join(f"<li>{esc(t)}</li>" for t in sp.summary_lines(res)) + "</ul>")
+                for kind, path in res["paths"].items():
+                    raw(f'<p class="note">{kind.upper()}: <span class="mono path">{esc(files.display_path(path))}</span></p>')
+            dlg.open()
+
+        ui.timer(0.05, compute, once=True)
 
     # Structure dialog opened from the Structure pill; draws the figure on first open.
     def open_structure(self, name):
