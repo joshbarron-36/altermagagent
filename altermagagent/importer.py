@@ -701,7 +701,7 @@ def find_runs(root, stats=None):
     return runs
 
 
-# Import one root as a project: scan, store runs, build and store the summary.
+# Import one root as a project: scan, build the summary in memory, then store runs and summary in one write.
 def import_project(root, name=None):
     from . import summary as summary_mod
     root_p = Path(root).expanduser().resolve()
@@ -716,9 +716,16 @@ def import_project(root, name=None):
     stamp = datetime.now().isoformat(timespec="seconds")
     details = {"n_runs": len(runs), "n_files": stats.get("files", 0), "scan_seconds": 0.0,
                "msg_logs": stats.get("msg_logs", [])}
-    db.save_project(name, str(root_p), stamp, runs, details=details)
-    summ = summary_mod.build(db.get_runs(name), project=name, root=str(root_p), msg_logs=details["msg_logs"])
-    db.save_summary(name, summ)
+    summ = summary_mod.build(db.with_parent_choices(name, runs), project=name, root=str(root_p),
+                             msg_logs=details["msg_logs"])
     details["scan_seconds"] = round(time.perf_counter() - t0, 2)
     db.save_project(name, str(root_p), stamp, runs, summary=summ, details=details)
     return name, len(runs)
+
+
+# Re-import an indexed project from its stored root under the same name; a failed rescan leaves the index as it was.
+def rescan_project(name):
+    p = db.get_project(name)
+    if p is None:
+        raise ValueError(f"no project named {name}")
+    return import_project(p["root"], name)

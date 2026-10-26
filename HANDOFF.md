@@ -1,5 +1,21 @@
 # Handoff note
 
+## Rescan and delete, 26 October 2026
+
+- Added `altermag rescan <project>`: it re-imports the project from its stored root folder under the same name.
+- Rescan rebuilds the runs and the summary with the current code, which fixes the stale summary order found on 25 October.
+- To fix CrSe and 13-CrSb, run `altermag rescan CrSe` and `altermag rescan 13-CrSb`, or use Rescan in the interface.
+- When the stored root folder no longer exists or the summary cannot be built, rescan stops with a clear message; a failed rescan leaves the index as it was.
+- User-set parent choices and cached band matches survive a rescan, as they already did on re-import.
+- Added `altermag delete <project>`: it removes the project, its runs, band matches and parent choices from the index only.
+- Delete never touches folders on disk; cached figures under the index folder are also left in place.
+- Interface: each project in the left column has a small menu button (three dots) with Rescan and Delete.
+- Delete asks for confirmation; when the selected project is removed, the first remaining project is shown.
+- Every rescan and delete message says that no data folder was changed.
+- Added five tests in `tests/test_rescan_delete.py` on the demo tree and a temporary index.
+- Full check: `python -m unittest discover -s tests` ran 57 tests, OK, one skip.
+- Both menu actions were clicked in a headless browser against a temporary index; scanned calculation folders were not changed.
+
 ## Structure moment parsing, 25 October 2026
 
 - Fixed `altermagagent/structure.py` to ignore surplus MAGMOM values after all atoms have moments.

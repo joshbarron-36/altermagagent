@@ -1,4 +1,4 @@
-"""Command line entry point: altermag import | summary | graph | suggest | literature | bands | structure | benchmark | parent | gui."""
+"""Command line entry point: altermag import | rescan | delete | summary | graph | suggest | literature | bands | structure | benchmark | parent | gui."""
 
 import json
 
@@ -15,6 +15,28 @@ def cmd_import(args):
     name, n = import_project(args.root, args.name)
     print(f"Imported {n} runs into project {name} (index {display_path(db.DB_PATH)}).")
     print(scan_line(db.get_project(name)))
+
+
+# Re-import a project from its stored folder under the same name, rebuilding runs and summary with the current code.
+def cmd_rescan(args):
+    from .importer import rescan_project
+    try:
+        name, n = rescan_project(args.project)
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"Rescan failed: {exc}; the index was not changed.", file=sys.stderr)
+        return 1
+    print(f"Rescanned {name}: {n} runs, summary rebuilt in {display_path(db.DB_PATH)}; {db.NO_DATA_CHANGE}.")
+    return 0
+
+
+# Remove a project and its rows from the index only; folders on disk are not touched.
+def cmd_delete(args):
+    n = db.delete_project(args.project)
+    if n is None:
+        print(f"Delete failed: no project named {args.project}; {db.NO_DATA_CHANGE}.", file=sys.stderr)
+        return 1
+    print(f"Removed {args.project} ({n} runs) from {display_path(db.DB_PATH)}; {db.NO_DATA_CHANGE}.")
+    return 0
 
 
 # Return the closing line with runs, files and seconds from the project details.
@@ -163,7 +185,7 @@ def cmd_parent(args):
         print(f"No run {val} in project {args.project}.", file=sys.stderr)
         return 1
     db.set_parent_choice(args.project, args.run_name, val)
-    print(f"Parent of {args.run_name} set to {args.parent} in {display_path(db.DB_PATH)}; no data folder was changed.")
+    print(f"Parent of {args.run_name} set to {args.parent} in {display_path(db.DB_PATH)}; {db.NO_DATA_CHANGE}.")
     return 0
 
 
@@ -214,6 +236,12 @@ def main(argv=None):
     p.add_argument("root")
     p.add_argument("--name", help="project name, default the folder name")
     p.set_defaults(func=cmd_import)
+    p = sub.add_parser("rescan", help="re-import a project from its stored folder under the same name")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_rescan)
+    p = sub.add_parser("delete", help="remove a project from the index; folders on disk are not touched")
+    p.add_argument("project")
+    p.set_defaults(func=cmd_delete)
     p = sub.add_parser("summary", help="print the summary and runs of a project")
     p.add_argument("project")
     p.add_argument("--verbose", action="store_true", help="add the reason for each run's parent on an indented line")

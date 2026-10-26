@@ -74,6 +74,8 @@ altermag summary CrSe
 
 ```bash
 altermag import <folder> --name <project>    # read-only scan of a folder tree into the index
+altermag rescan <project>                    # re-import a project from its stored folder; rebuilds runs and summary
+altermag delete <project>                    # remove a project from the index; folders on disk are not touched
 altermag summary <project>                   # eight summary points, branches, gaps, runs in order, procedure checks
 altermag graph <project>                     # branches (structure, magnetic realization, SOC) and their runs as text
 altermag suggest <project> <branch>          # suggestions for the next DFT calculations of one branch

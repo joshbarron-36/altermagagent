@@ -45,6 +45,10 @@ CREATE TABLE IF NOT EXISTS parent_choices (
 );
 """
 UNKNOWN_PARENT = ""
+# Tables keyed by project name that do not cascade from projects, so delete_project clears them itself.
+PROJECT_TABLES = ("band_match", "parent_choices")
+# Closing phrase of every rescan and delete message: the scanned folders are only read.
+NO_DATA_CHANGE = "no data folder was changed"
 
 
 # Open the index database, creating the folder and tables when needed.
@@ -110,12 +114,18 @@ def get_runs(name):
     con = connect()
     rows = con.execute("SELECT * FROM runs WHERE project = ? ORDER BY seq", (name,)).fetchall()
     con.close()
+    return with_parent_choices(name, [dict(r) for r in rows])
+
+
+# Return copies of run dicts (stored rows or fresh scans) with details decoded and the user's parent choices applied.
+def with_parent_choices(name, runs):
     out = []
     choices = parent_choices(name)
-    for row in rows:
-        d = dict(row)
-        d["details"] = json.loads(d.pop("details_json") or "{}")
-        d["parent_auto"], d["parent_auto_note"], d["parent_user"] = d["parent"], d["parent_note"], d["name"] in choices
+    for r in runs:
+        d = dict(r)
+        d["details"] = json.loads(d.pop("details_json") or "{}") if "details_json" in d else json.loads(json.dumps(d["details"]))
+        d.setdefault("project", name)
+        d["parent_auto"], d["parent_auto_note"], d["parent_user"] = d.get("parent"), d.get("parent_note"), d["name"] in choices
         if d["parent_user"]:
             auto = f'{d["parent"]} ({d["parent_auto_note"]})' if d["parent"] else d["parent_auto_note"]
             d["parent"] = choices[d["name"]] or None
@@ -157,3 +167,18 @@ def set_band_match(project, run, key, result):
     with con:
         con.execute("INSERT OR REPLACE INTO band_match VALUES (?, ?, ?, ?)", (project, run, key, json.dumps(result)))
     con.close()
+
+
+# Remove one project and all its rows (runs, band matches, parent choices) from the index; return the run count, or None when unknown.
+def delete_project(name):
+    con = connect()
+    if con.execute("SELECT 1 FROM projects WHERE name = ?", (name,)).fetchone() is None:
+        con.close()
+        return None
+    n = con.execute("SELECT COUNT(*) FROM runs WHERE project = ?", (name,)).fetchone()[0]
+    with con:
+        for table in PROJECT_TABLES:
+            con.execute(f"DELETE FROM {table} WHERE project = ?", (name,))
+        con.execute("DELETE FROM projects WHERE name = ?", (name,))
+    con.close()
+    return n

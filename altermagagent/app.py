@@ -40,6 +40,8 @@ button { cursor:pointer; font:inherit; color:inherit; }
 .proj-btn:hover { background:var(--soft); }
 .proj-btn.current { background:var(--accent-soft); border-color:var(--accent); font-weight:600; }
 .proj-btn .meta { font-size:0.85rem; color:var(--muted); font-weight:400; flex:none; }
+.proj-row { display:flex; align-items:center; gap:2px; } .proj-row .proj-btn { flex:1; min-width:0; }
+.proj-more { color:var(--muted) !important; min-width:44px; min-height:44px; flex:none; }
 .proj-foot { padding:12px 16px; border-top:1px solid var(--line); }
 .btn { min-height:44px; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--panel); font-weight:600; }
 .btn:hover { background:var(--soft); }
@@ -252,6 +254,7 @@ class Page:
                 self.story_panel()
             with ui.element("section").classes("panel") as self.chat_section:
                 self.chat_panel()
+        self.dialog_host = ui.element("div")
         raw(f"Read-only index at {esc(files.display_path(db.DB_PATH))}").classes("footer")
 
     # Left panel: one button per indexed project.
@@ -262,15 +265,60 @@ class Page:
             raw('<p class="note">No projects yet. Use Import folder.</p>')
         for p in projs:
             cls = "proj-btn current" if p["name"] == self.project else "proj-btn"
-            b = ui.element("button").classes(cls).on("click", lambda _, n=p["name"]: self.select(n))
-            with b:
-                raw(f'<span>{esc(p["name"])}</span>', tag="span")
-                raw(f'<span class="meta">{p["n_runs"]} runs</span>', tag="span")
+            with ui.element("div").classes("proj-row"):
+                b = ui.element("button").classes(cls).on("click", lambda _, n=p["name"]: self.select(n))
+                with b:
+                    raw(f'<span>{esc(p["name"])}</span>', tag="span")
+                    raw(f'<span class="meta">{p["n_runs"]} runs</span>', tag="span")
+                more = ui.button(icon="more_vert").props("flat dense round").classes("proj-more")
+                more._props["aria-label"] = f'Actions for {p["name"]}'
+                with more:
+                    with ui.menu().props("dark"):
+                        ui.menu_item("Rescan", lambda _, n=p["name"]: self.rescan(n))
+                        ui.menu_item("Delete", lambda _, n=p["name"]: self.confirm_delete(n))
 
     # Switch to another project and redraw.
     def select(self, name):
         self.project = name
         self.refresh_all()
+
+    # Re-import one project from its stored folder off the event loop and redraw.
+    async def rescan(self, name):
+        from .importer import rescan_project
+        ui.notify(f"Rescanning {name}...")
+        try:
+            _, n = await ng_run.io_bound(rescan_project, name)
+        except Exception as exc:
+            ui.notify(f"Rescan of {name} failed: {exc}; {db.NO_DATA_CHANGE}", type="negative", multi_line=True)
+            return
+        self.forget(name)
+        self.refresh_all()
+        ui.notify(f"Rescanned {name}: {n} runs; {db.NO_DATA_CHANGE}")
+
+    # Ask before removing one project from the index; the folders on disk stay as they are.
+    def confirm_delete(self, name):
+        dlg, body = self.dialog(f"Remove {name}")
+        with body:
+            raw(f"<p>Remove {esc(name)} from the index? The calculation folders on disk are not touched.</p>")
+            with ui.element("div").classes("flex gap-2 mt-3"):
+                button("Cancel", "btn", dlg.close)
+                button("Remove", "btn primary", dlg.close).on("click", lambda: self.drop_project(name))
+        dlg.open()
+
+    # Remove a project from the index off the event loop, pick another project when it was selected, and redraw.
+    async def drop_project(self, name):
+        await ng_run.io_bound(db.delete_project, name)
+        self.forget(name)
+        if self.project == name:
+            names = [p["name"] for p in db.list_projects()]
+            self.project = names[0] if names else None
+        self.refresh_all()
+        ui.notify(f"Removed {name} from the index; {db.NO_DATA_CHANGE}")
+
+    # Drop the chat, context and branch state kept for one project.
+    def forget(self, name):
+        for state in (self.chats, self.context, self.branch):
+            state.pop(name, None)
 
     # Redraw every panel.
     def refresh_all(self):
@@ -534,7 +582,7 @@ class Page:
         def changed(e):
             v = e.value
             db.set_parent_choice(project, run_name, None if v == "__auto__" else "" if v == "__unknown__" else v)
-            ui.notify(f"Parent of {run_name} stored in the index; no data folder was changed")
+            ui.notify(f"Parent of {run_name} stored in the index; {db.NO_DATA_CHANGE}")
             self.story_panel.refresh()
 
         with ui.element("span").classes("psel").on("click.stop", lambda: None):
@@ -565,7 +613,8 @@ class Page:
 
     # Create a dialog with the mockup's header and return (dialog, body container).
     def dialog(self, title):
-        dlg = ui.dialog().props("transition-show=fade transition-hide=fade")
+        with self.dialog_host:
+            dlg = ui.dialog().props("transition-show=fade transition-hide=fade")
         dlg.on("hide", lambda: dlg.delete())
         with dlg, ui.card().classes("dlg"):
             with ui.element("div").classes("dlg-head"):
