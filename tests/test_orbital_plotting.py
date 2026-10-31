@@ -207,12 +207,14 @@ class CommandLine(_Base):
                 bad.validate()
             self.assertIn(text, str(caught.exception))
 
-    # Every PlotOptions field has a flag of the same name whose default is the PlotOptions default.
+    # Every PlotOptions field but the parsed rcparams has a flag of the same name whose default is the PlotOptions default.
     def test_defaults_from_plot_options(self) -> None:
         import dataclasses
         from vasp_orbital_plotter.options import PlotOptions
         self.assertEqual(cli.options_from_args(cli.plot_parser().parse_args([])), PlotOptions())
-        self.assertTrue(all(hasattr(cli.plot_parser().parse_args([]), f.name) for f in dataclasses.fields(PlotOptions)))
+        flagged = [f for f in dataclasses.fields(PlotOptions) if f.metadata.get("flag", True)]
+        self.assertEqual([f.name for f in dataclasses.fields(PlotOptions) if f not in flagged], ["rcparams"])
+        self.assertTrue(all(hasattr(cli.plot_parser().parse_args([]), f.name) for f in flagged))
 
     # Listings and inspect never import Matplotlib, the plotting module or the k-path module.
     def test_listings_import_no_matplotlib(self) -> None:

@@ -18,6 +18,7 @@ Array conventions of the returned VasprunData (all indices 0-based inside Python
 - In the VASP 6.3.2 band files checked, number n is the n-th corner line of a line-mode KPOINTS file, not a k-point index.
 - With with_projections=False the <projected> numbers are freed unread: projections is None, has_projected_block says
   whether the block exists, and the orbital labels are still read from its <field> entries.
+- With float32=True the projections are stored in single precision, which halves their memory; vasprun.xml prints 4 decimals.
 """
 
 from __future__ import annotations
@@ -328,6 +329,8 @@ class _StreamState:
         self.notes: list[str] = []
         # Whether <projected> arrays are stored, and whether the current <calculation> has a <projected> block at all.
         self.with_projections = True
+        # Number type of the stored projections: float64 by default, float32 with parse_vasprun(float32=True).
+        self.proj_dtype: type = np.float64
         self.saw_projected = False
         # Kind of the band-data array being streamed (None outside one), its plan once the header is read, and the <set> depth.
         self.array_kind: str | None = None
@@ -451,9 +454,10 @@ def _plan_array(array: etree._Element, kind: str, state: _StreamState) -> _Array
     inner = order[2:]
     remaining = [axis for axis in canonical if axis not in order[:2]] + ["field"]
     perm = tuple((*inner, "field").index(axis) for axis in remaining)
-    setattr(state, kind, np.zeros(tuple(sizes[axis] for axis in canonical) + (len(fields),)))
+    dtype = state.proj_dtype if kind == "proj" else np.float64
+    setattr(state, kind, np.zeros(tuple(sizes[axis] for axis in canonical) + (len(fields),), dtype=dtype))
     return _ArrayPlan(kind=kind, name=name, order=order, sizes=sizes,
-                      rows=etree.XPath("set/" * (len(inner) - 1) + "r/text()"),
+                      rows=etree.XPath("set/" * (len(inner) - 1) + "r/text()", smart_strings=False),
                       inner_shape=tuple(sizes[axis] for axis in inner) + (len(fields),),
                       perm=None if perm == tuple(range(len(perm))) else perm,
                       axis_pos=(canonical.index(order[0]), canonical.index(order[1])))
@@ -593,7 +597,7 @@ def _open(path: Path, stack: contextlib.ExitStack) -> tuple[IO[bytes], IO[bytes]
 
 # Stream-parse a vasprun.xml (or .xml.gz) and return its structure, k-points, eigenvalues and projections.
 def parse_vasprun(path: str | os.PathLike[str], require_projections: bool = True, progress: bool | None = None,
-                  with_projections: bool = True) -> VasprunData:
+                  with_projections: bool = True, float32: bool = False) -> VasprunData:
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"no file at {path}")
@@ -601,6 +605,7 @@ def parse_vasprun(path: str | os.PathLike[str], require_projections: bool = True
     report = size >= PROGRESS_MIN_BYTES if progress is None else progress
     state = _StreamState()
     state.with_projections = with_projections
+    state.proj_dtype = np.float32 if float32 else np.float64
     with contextlib.ExitStack() as stack:
         stream, disk = _open(path, stack)
         # For .xml.gz input the percentage counts compressed bytes read from disk.

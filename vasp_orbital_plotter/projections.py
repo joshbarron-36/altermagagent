@@ -3,24 +3,31 @@
 Users name ions in VASP's 1-based numbering; the conversion to 0-based array indices goes through VasprunData.ion_index.
 Orbital names are matched against the file's own <field> labels, which are the authority, after one normalising rule.
 The weight of a state is the plain sum of the stored values over the selected (ion, orbital) pairs; nothing is squared.
-Stage 2 uses one projection block: "total" for nonmagnetic and noncollinear files, spin up for collinear ISPIN = 2 files.
+Stage 3 chooses the block: --spin up, down or both for collinear ISPIN = 2 files (each spin with its own eigenvalues),
+--component total, mx, my or mz for noncollinear files; mx, my and mz are signed and never treated as spin channels.
+Band window, k-point stride and selected ions are cut before the weight sum, so its cost scales with what is drawn.
+COMPATIBILITY is the one table of which flags each (layout, channel) pair accepts, with every refusal text.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Iterable, Sequence
 
 import numpy as np
 
-from .options import split_list
-from .parser import LAYOUT_COLLINEAR, LAYOUT_NONCOLLINEAR, VasprunData
+from .options import MAX_SERIES, split_list
+from .parser import LAYOUT_COLLINEAR, LAYOUT_NONCOLLINEAR, LAYOUT_NONMAGNETIC, VasprunData
 
 
 class SelectionError(ValueError):
     """A user selection names an ion, element or orbital that the file does not have, or is written wrongly."""
 
+
+SPINS = ("up", "down", "both")
+COMPONENTS = ("total", "mx", "my", "mz")
+MAGNETISATION = ("mx", "my", "mz")
 
 SHELLS = "spdf"
 # Number of components a complete s, p, d or f shell has; a shell group is offered only when all are in the file.
@@ -193,28 +200,198 @@ def build_selection(data: VasprunData, atoms: str | None = None, elements: str |
     return Selection(pairs=pairs, label=" + ".join(label for _, label in terms))
 
 
-# Projection block used in stage 2: its index, its label and a note for the user (None when nothing needs saying).
-def select_component(data: VasprunData) -> tuple[int, str, str | None]:
+_SPIN_NONMAGNETIC = "--spin needs a collinear ISPIN = 2 file; this file is nonmagnetic and has one block"
+_SPIN_NONCOLLINEAR = ("--spin needs a collinear ISPIN = 2 file; this file is noncollinear, whose blocks are total, mx, my "
+                      "and mz, not spin channels: use --component total, mx, my or mz")
+
+
+@dataclass(frozen=True)
+class ChannelRule:
+    """One (layout, channel) entry: projection blocks drawn (one panel each), signed or not, refused flags with their text.
+
+    An entry with `error` set is a channel the layout does not have; --spin or --component asking for it gets that text.
+    """
+
+    blocks: tuple[str, ...] = ()
+    signed: bool = False
+    refuses: dict[str, str] = field(default_factory=dict)
+    error: str | None = None
+
+
+# Error texts of a signed magnetisation channel for --normalize and --overlay.
+def _signed_refusals(name: str) -> dict[str, str]:
+    return {"--normalize": f"--normalize divides by the total of each state and is not defined for the signed {name} block; "
+                           "drop --normalize",
+            "--overlay": f"--overlay is not available for the signed {name} block, whose two sign colours would clash "
+                         "with the series colours; plot one selection at a time"}
+
+
+# The one compatibility table of layouts, channels (--spin or --component values) and flags; every refusal text lives here.
+COMPATIBILITY: dict[tuple[str, str], ChannelRule] = {
+    (LAYOUT_NONMAGNETIC, "total"): ChannelRule(("total",)),
+    **{(LAYOUT_NONMAGNETIC, name): ChannelRule(error=f"--component {name} needs a noncollinear file; this file is "
+                                                     "nonmagnetic, whose only block is total") for name in MAGNETISATION},
+    **{(LAYOUT_NONMAGNETIC, name): ChannelRule(error=_SPIN_NONMAGNETIC) for name in SPINS},
+    # --component total is accepted on collinear files and changes nothing; the panels follow --spin.
+    (LAYOUT_COLLINEAR, "total"): ChannelRule(("up", "down")),
+    (LAYOUT_COLLINEAR, "both"): ChannelRule(("up", "down")),
+    (LAYOUT_COLLINEAR, "up"): ChannelRule(("up",)),
+    (LAYOUT_COLLINEAR, "down"): ChannelRule(("down",)),
+    **{(LAYOUT_COLLINEAR, name): ChannelRule(error=f"--component {name} needs a noncollinear file; this file is collinear "
+                                                   "ISPIN = 2, whose blocks are spin up and spin down: use --spin up, down "
+                                                   "or both") for name in MAGNETISATION},
+    (LAYOUT_NONCOLLINEAR, "total"): ChannelRule(("total",)),
+    **{(LAYOUT_NONCOLLINEAR, name): ChannelRule((name,), signed=True, refuses=_signed_refusals(name))
+       for name in MAGNETISATION},
+    **{(LAYOUT_NONCOLLINEAR, name): ChannelRule(error=_SPIN_NONCOLLINEAR) for name in SPINS},
+}
+# Channel drawn when neither --spin nor --component is given.
+DEFAULT_CHANNEL = {LAYOUT_NONMAGNETIC: "total", LAYOUT_COLLINEAR: "both", LAYOUT_NONCOLLINEAR: "total"}
+
+
+# Refusal text of a flag with a channel, or None; without a layout, every layout that can draw the channel is consulted.
+def flag_refusal(channel: str, flag: str, layout: str | None = None) -> str | None:
+    for (layout_name, name), rule in COMPATIBILITY.items():
+        if name == channel and rule.error is None and layout in (None, layout_name) and flag in rule.refuses:
+            return rule.refuses[flag]
+    return None
+
+
+@dataclass
+class Block:
+    """Source of one panel: the projection block index and the panel heading (None for one panel)."""
+
+    projection: int
+    heading: str | None
+
+
+@dataclass
+class BlockChoice:
+    """The panels to draw and how to name them: label for text, tag for output names, quantity for the axis and legend."""
+
+    blocks: list[Block]
+    label: str
+    tag: str
+    quantity: str
+    signed: bool
+    collinear: bool
+    caption: str | None
+    note: str | None
+
+    # Eigenvalue block of a panel: each spin has its own for collinear files, otherwise there is only block 0.
+    def eigen(self, block: Block) -> int:
+        return block.projection if self.collinear else 0
+
+
+# Blocks for --spin and --component, checked against COMPATIBILITY together with --normalize and --overlay.
+def choose_blocks(data: VasprunData, spin: str | None = None, component: str | None = None, normalize: bool = False,
+                  overlay: bool = False) -> BlockChoice:
     if data.projections is None:
         raise SelectionError("this file has no <projected> block; rerun the band calculation with LORBIT = 11")
-    components = list(data.projection_components)
-    if data.layout == LAYOUT_NONCOLLINEAR:
-        return components.index("total"), "total", None
-    if data.layout == LAYOUT_COLLINEAR:
-        return 0, components[0], ("collinear ISPIN = 2 file: stage 2 plots the spin-up bands and weights only; "
-                                  "spin choice and two panels come in stage 3")
-    return 0, components[0], None
+    layout = data.layout
+    for flag, value, names in (("--spin", spin, SPINS), ("--component", component, COMPONENTS)):
+        if value is None:
+            continue
+        rule = COMPATIBILITY.get((layout, value))
+        if rule is None:
+            raise SelectionError(f"{flag} {value!r} must be one of {', '.join(names)}")
+        if rule.error:
+            raise SelectionError(rule.error)
+    collinear = layout == LAYOUT_COLLINEAR
+    channel = (spin if collinear else component) or DEFAULT_CHANNEL[layout]
+    rule = COMPATIBILITY[(layout, channel)]
+    for flag, given in (("--normalize", normalize), ("--overlay", overlay)):
+        if given and flag in rule.refuses:
+            raise SelectionError(rule.refuses[flag])
+    labels = list(data.projection_components)
+    several = len(rule.blocks) > 1
+    blocks = [Block(labels.index(name), f"spin {name}" if several else None) for name in rule.blocks]
+    if collinear:
+        note = None if spin else ("collinear ISPIN = 2 file: spin up and spin down are drawn as two panels; "
+                                  "choose one with --spin up or --spin down")
+        label = "spin up and down" if several else f"spin {channel}"
+        return BlockChoice(blocks, label, channel, "projection weight", False, True, None, note)
+    caption = None
+    if layout == LAYOUT_NONCOLLINEAR:
+        value = data.parameters.get("LSORBIT")
+        lsorbit = "not stated" if value is None else ("T" if value else "F")
+        if rule.signed:
+            caption = f"{channel} block as read from vasprun.xml, sign convention unverified; LSORBIT = {lsorbit}"
+        elif lsorbit != "T":
+            caption = f"noncollinear run, LSORBIT = {lsorbit}: total charge block, plotted like a spin-orbit run"
+    return BlockChoice(blocks, channel, channel if rule.signed else "", channel if rule.signed else "projection weight",
+                       rule.signed, False, caption, None)
 
 
-# Summed weight of every state, shape (kpoint, band), from projection block `component`; optionally normalised per state.
-def select_weights(data: VasprunData, selection: Selection, component: int, normalize: bool = False) -> np.ndarray:
+# Contiguous band slice of every band that enters [emin, emax] at some k-point in any of the (kpoint, band) arrays.
+def bands_reaching(energies: Sequence[np.ndarray], emin: float, emax: float) -> slice:
+    reach = np.zeros(energies[0].shape[1], dtype=bool)
+    for es in energies:
+        reach |= (es.max(axis=0) >= emin) & (es.min(axis=0) <= emax)
+    found = np.flatnonzero(reach)
+    return slice(int(found[0]), int(found[-1]) + 1) if found.size else slice(0, 0)
+
+
+# One selection per --select term for --overlay, labelled by the term or by --label-series in the same order.
+def build_series(data: VasprunData, select: Sequence[str] | None, labels: Sequence[str] | None = None) -> list[Selection]:
+    if not select:
+        raise SelectionError("--overlay needs --select ATOMS:ORBITALS terms, one per series, for example "
+                             "--select Mn:d --select Te:p")
+    if len(select) > MAX_SERIES:
+        raise SelectionError(f"--overlay draws at most {MAX_SERIES} series, but {len(select)} --select terms were given")
+    if labels and len(labels) != len(select):
+        raise SelectionError(f"{len(labels)} --label-series names for {len(select)} --select terms; give one name per term")
+    series = [build_selection(data, select=[term]) for term in select]
+    for selection, label in zip(series, labels or []):
+        selection.label = label
+    return series
+
+
+# Increasing indices as basic slices of constant step, in order; a stride of each segment plus its end gives a few slices.
+def _runs(indices: np.ndarray) -> list[slice]:
+    runs: list[slice] = []
+    i, n = 0, len(indices)
+    while i < n:
+        if i + 1 == n:
+            runs.append(slice(int(indices[i]), int(indices[i]) + 1))
+            break
+        j, step = i + 1, int(indices[i + 1] - indices[i])
+        while j + 1 < n and indices[j + 1] - indices[j] == step:
+            j += 1
+        runs.append(slice(int(indices[i]), int(indices[j]) + 1, step))
+        i = j + 1
+    return runs
+
+
+# Views of block `component` at the kept k-points (one per run of _runs) inside the band window and the ion range.
+def _views(data: VasprunData, component: int, kpoints: np.ndarray | None, bands: slice | None,
+           ions: slice = slice(None)) -> list[np.ndarray]:
+    """Views, never copies, so the k-point stride, the band window and the ion range all cut the work of the sums."""
     block = data.projections[component]
-    mask = np.zeros(block.shape[2:])
-    for ion, orbital in selection.pairs:
-        mask[data.ion_index(ion), orbital] = 1.0
-    weights = np.tensordot(block, mask, axes=([2, 3], [0, 1]))
+    rows = [slice(None)] if kpoints is None else _runs(np.asarray(kpoints))
+    return [block[r, slice(None) if bands is None else bands, ions] for r in rows]
+
+
+# Total of every state over all ions and orbitals, shape (kpoint, band), for --normalize; computed once per panel.
+def state_totals(data: VasprunData, component: int, kpoints: np.ndarray | None = None,
+                 bands: slice | None = None) -> np.ndarray:
+    return np.concatenate([view.sum(axis=(2, 3)) for view in _views(data, component, kpoints, bands)])
+
+
+# Summed weight of every state, shape (kpoint, band), from projection block `component`, over the given k-points and bands.
+def select_weights(data: VasprunData, selection: Selection, component: int, normalize: bool = False,
+                   kpoints: np.ndarray | None = None, bands: slice | None = None,
+                   total: np.ndarray | None = None) -> np.ndarray:
+    """The einsum runs on views cut to the band window, the kept k-points and the range of selected ions; `total` is reused if given."""
+    indices = [data.ion_index(ion) for ion, _ in selection.pairs]
+    first = min(indices)
+    mask = np.zeros((max(indices) - first + 1, data.projections.shape[-1]), dtype=data.projections.dtype)
+    for index, (_, orbital) in zip(indices, selection.pairs):
+        mask[index - first, orbital] = 1.0
+    views = _views(data, component, kpoints, bands, slice(first, first + mask.shape[0]))
+    weights = np.concatenate([np.einsum("kbio,io->kb", view, mask) for view in views])
     if normalize:
-        total = block.sum(axis=(2, 3))
+        total = state_totals(data, component, kpoints, bands) if total is None else total
         weights = np.divide(weights, total, out=np.zeros_like(weights), where=np.abs(total) > 1e-12)
     return weights
 

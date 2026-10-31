@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -216,3 +216,97 @@ def build_kpath(data: VasprunData, labels: str | None = None, folder: Path | Non
     label_source, ticks = next(found, ("none", [(float(x[s]), "") for s in [0, *starts]] + [(float(x[-1]), "")]))
     return KPath(x=x, branches=branches, segment_starts=starts, ticks=ticks, segment_source=segment_source,
                  label_source=label_source, notes=notes)
+
+
+# Split a --label-map text at commas outside $...$ mathtext and outside braces, so "X=X$_{1,2}$" stays one entry.
+def split_label_map(text: str) -> list[str]:
+    items, current, in_math, depth = [], [], False, 0
+    for char in text:
+        if char == "$":
+            in_math = not in_math
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth = max(depth - 1, 0)
+        if char == "," and not in_math and depth == 0:
+            items.append("".join(current))
+            current = []
+        else:
+            current.append(char)
+    items.append("".join(current))
+    return [item.strip() for item in items if item.strip()]
+
+
+# Parse --label-map "G=Γ,C0=C$_0$" into (key, new label) pairs; a value may use Matplotlib mathtext between $ signs.
+def parse_label_map(text: str) -> list[tuple[str, str]]:
+    pairs = []
+    for item in split_label_map(text):
+        key, sep, value = item.partition("=")
+        if not sep or not key.strip() or not value.strip():
+            raise KPathError(f"--label-map entry {item!r} must have the form OLD=NEW, for example G=Γ")
+        pairs.append((key.strip(), value.strip()))
+    if not pairs:
+        raise KPathError("--label-map is empty")
+    for _, value in pairs:
+        _check_mathtext(value)
+    return pairs
+
+
+# Raise KPathError when a label's $...$ parts are not valid Matplotlib mathtext, so the error comes before drawing.
+def _check_mathtext(value: str) -> None:
+    if "$" not in value:
+        return
+    if value.count("$") % 2:
+        raise KPathError(f"label {value!r} has an odd number of $ signs; mathtext needs them in pairs, as in C$_0$")
+    from matplotlib.mathtext import MathTextParser  # only here, so the k-path module stays free of Matplotlib otherwise
+    try:
+        MathTextParser("path").parse(value)
+    except ValueError as error:
+        raise KPathError(f"label {value!r} is not valid mathtext ({str(error).splitlines()[0]})") from None
+
+
+# True when a printed label part is named by a --label-map key, written as printed ("Γ") or as typed ("G", "Gamma").
+def _label_matches(part: str, key: str) -> bool:
+    return part == key or part == pretty_label(key, keep_numbers=True)
+
+
+# The k-path with its tick labels renamed by --label-map pairs; a key that names no label raises KPathError.
+def rename_labels(kpath: KPath, pairs: Sequence[tuple[str, str]]) -> KPath:
+    present = [part for _, label in kpath.ticks for part in label.split("|") if part]
+    unused = [key for key, _ in pairs if not any(_label_matches(part, key) for part in present)]
+    if unused:
+        raise KPathError(f"--label-map names {', '.join(unused)}, which is not on the path; "
+                         f"labels on the path: {', '.join(dict.fromkeys(present)) or 'none'}")
+
+    # New text of one label part: the value of the first matching key, else the part unchanged.
+    def renamed(part: str) -> str:
+        return next((value for key, value in pairs if _label_matches(part, key)), part)
+
+    ticks = [(position, "|".join(renamed(part) for part in label.split("|"))) for position, label in kpath.ticks]
+    return replace(kpath, ticks=ticks, label_source=f"{kpath.label_source}, renamed by --label-map")
+
+
+# The k-path with every tick label removed; the vertical lines at the ticks stay.
+def without_labels(kpath: KPath) -> KPath:
+    return replace(kpath, ticks=[(position, "") for position, _ in kpath.ticks], label_source="none (--no-labels)")
+
+
+# 0-based k-points kept by --kpoint-stride: every stride-th point of each segment from its start, plus each segment's end.
+def stride_indices(nkpoints: int, segment_starts: Sequence[int], stride: int) -> np.ndarray:
+    if stride < 1:
+        raise KPathError(f"--kpoint-stride must be 1 or more, not {stride}")
+    bounds = [0, *segment_starts, nkpoints]
+    kept: set[int] = set()
+    for start, stop in zip(bounds[:-1], bounds[1:]):
+        if stop > start:
+            kept.update(range(start, stop, stride))
+            kept.add(stop - 1)
+    return np.array(sorted(kept), dtype=int)
+
+
+# The k-path restricted to the kept k-points (from stride_indices), with branches and segment starts renumbered.
+def subsample(kpath: KPath, kept: np.ndarray) -> KPath:
+    position = {int(k): i for i, k in enumerate(kept)}
+    branches = [(position[a], position[b]) for a, b in kpath.branches]
+    starts = [position[s] for s in kpath.segment_starts]
+    return replace(kpath, x=kpath.x[kept], branches=branches, segment_starts=starts)

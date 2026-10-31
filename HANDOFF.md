@@ -1,5 +1,86 @@
 # Handoff note
 
+## Orbital-projected band plotter, stage 3, 30 October 2026
+
+- Branch `orbital-plotter-stage3`, off main e6800b5, in the worktree `worktrees/orbital-plotter-stage3`. Committed on the branch after review and tests; merge to main pending.
+- Plan: `orbital-plotter-plan_v3.html` next to the repository (block choice, signed plots, overlays, labels, styles, large files, assumptions).
+- Nothing in `altermagagent/` changed; no new dependency.
+- `--spin up|down|both` for collinear ISPIN = 2 files: weights from the chosen spin block, eigenvalues from the same spin block.
+- The collinear default is now `both` (two panels side by side, shared energy axis, one colour scale), with a note.
+- Without `--figsize` the figure is 6 by 4.5 inches per panel; an explicit `--figsize` is the whole figure.
+- `--component total|mx|my|mz` for noncollinear files, default total; mx, my and mz are never treated as spin channels.
+- Colour mode for mx, my, mz: diverging map (`--cmap-signed`, default RdBu_r) with a grey middle, centred on zero, symmetric about the largest |value|.
+- The grey middle keeps zero-magnetisation states visible on white paper; the colour bar reads "mz projection (sign convention unverified)".
+- Fat-band mode for mx, my, mz: red markers for positive, blue for negative, area proportional to |value|, legend per sign.
+- Colour mode for mx, my, mz draws no legend entry, even with `--legend`: a flat-colour line would hide the sign, and the colour bar names the quantity.
+- Every mx, my, mz figure has a caption: block as read from vasprun.xml, "sign convention unverified", and LSORBIT; it is also printed as a note.
+- Refusals with one `error:` line, exit 2: `--spin` on nonmagnetic or noncollinear files (the latter points to `--component`).
+- Also refused: `--component` other than total on nonmagnetic or collinear files, and `--normalize` or `--overlay` with mx, my, mz.
+- `--overlay`: each `--select` term is its own series with its own colour and legend entry; `--label-series` (repeatable) names them; at most 6.
+- Series colours in fixed order: the stage 2 blue, vermillion, green, orange, purple, sky blue; the order passes the colour-vision separation check.
+- Colour-mode overlays colour each state by its dominant series, faded to grey as that weight falls to zero, with a legend and no colour bar.
+- Judgment call: dominant colour rather than refusal, because "which selection dominates" is the usual question of a character plot.
+- `--label-map 'G=Γ,C0=C$_0$'` renames labels (keys match the printed or typed name); unknown keys and bad mathtext are refused before parsing.
+- Commas inside `$...$` mathtext or inside braces do not split `--label-map` entries, so `'X=X$_{1,2}$,G=Γ'` gives two entries.
+- `--no-labels` keeps the lines and drops the names. C₀ and Σ₀ from KLABELS still render as subscripts.
+- `--style paper` (default, the stage 2 sizes) or `talk` (fonts × 1.4, lines × 1.5, marker area × 2); scaling keeps an explicit `--font-size` meaningful.
+- `--rcparams-file` applies a JSON object of rcParams, checked by Matplotlib; `--despine` removes the top and right frame lines.
+- Ticks point inwards on the bands and the colour bar; PDF and PS embed TrueType text; SVG and PDF are fully vector unless `--rasterize`.
+- Figures now use Matplotlib's constrained layout, so the margins differ slightly; the two stage 2 docs figures were regenerated for that.
+- Legends have a light frame and take the best free corner; long captions wrap to the figure width.
+- `--kpoint-stride N` keeps every Nth k-point of each segment plus both segment ends; branches and segment starts are renumbered.
+- Weights are summed with `numpy.einsum` on views cut to the band window, the kept k-points and the range of selected ions; nothing is copied.
+- The kept k-points are read as a few constant-step slices (one per segment plus the ends), so `--kpoint-stride` cuts the sum itself.
+- `--float32` stores the projections in single precision (parser option `float32=True`); the default stays float64.
+- The parser's row XPath now returns plain strings (`smart_strings=False`), about 5 to 10 percent faster on large files.
+- New file `tests/test_orbital_stage3.py`, 38 tests, including CLI exit-code tests for every new refusal (20 cases).
+- Full check: `PYTHONPATH=. python -m unittest discover -s tests` runs 206 tests, OK, one skip (168 before stage 3, 201 before the review fixes).
+- Verified on MnTe `9.2-band`, read-only: total per state, summed over ions and orbitals, lies in 0.303 to 0.996.
+- There, |m| = √(mx² + my² + mz²) per state never exceeds the total (largest excess 0.0); per (ion, orbital) entry |m| equals the total within 1.2e-4.
+- That is what a projection of one spinor state gives, so the four blocks behave as charge plus a magnetisation vector.
+- Summed over occupied states along the path, Mn1 gives (mx, my, mz) = (3.88, 2.24, 0.001) and Mn2 the opposite; MAGMOM is (3.98, 2.30, 0) and (−3.98, −2.30, 0), SAXIS 0 0 1.
+- So the sign and axes of mx, my agree with MAGMOM on this run; that is a consistency check, not a proof of VASP's convention.
+- Timings with a warm file cache on this laptop, CrSe `2-SOC/2-bands` (354 MB, 640 k-points, 120 bands, Cr d): parse 6.3 to 6.4 s before, 5.6 to 5.8 s after.
+- Parse peak memory 293 MB before and after, 1.10 times the 265 MB projection array; with `--float32` the array is 133 MB and the peak 166 MB.
+- Select, k-path and plot: 1.02 s before, 1.00 s after, 0.67 s with `--kpoint-stride 4`; the weight sum itself takes 2 to 4 ms.
+- After the code-quality pass (parse cached, best of 8 runs, same laptop): 0.95 s, and 0.53 s with `--kpoint-stride 4`.
+- Before that pass, measured the same way in the same session: 0.90 s and 0.51 s, so the difference is within the noise of this laptop.
+- The weight sum of Cr d alone: 2.1 ms before and 1.9 ms after; with `--kpoint-stride 4`, 2.2 ms before and 0.4 ms after.
+- With `--normalize` and `--kpoint-stride 4`: 5.0 ms before and 0.7 ms after; the state totals are summed once per panel.
+- The plot phase adds about 70 MB, mostly Matplotlib itself (55 MB on a tiny file).
+- The `--float32` figure differs from the float64 one in 9 of 2.43 million pixels, by 1/255 each.
+- CrSe `2-SOC/1-scf` (785 MB, parse only): 14.0 s before, 13.0 s after, peak 614 MB for a 597 MB array; with `--float32` 13.0 s, 299 MB array, 329 MB peak.
+- The first cold-cache parse of the 354 MB file took 9.5 s; parsing stays bound by lxml and number conversion, which a new dependency would be needed to beat.
+- New figures at 150 dpi from `9.2-band`: `docs/figures/orbital_plotter/mnte_Mn_d_mz_color.png` (198 KB) and `mnte_Mn_d_Te_p_overlay.png` (273 KB).
+- Regenerated: `mnte_Mn_d_fatband.png` (229 KB) and `mnte_Te_p_color.png` (155 KB). README section extended with the stage 3 options and examples.
+- After the code-quality pass all four figures were regenerated with the same commands; they are byte-identical to the files above.
+- Code-quality pass: the stage 2 entry points `select_component` and `plot_bands` are removed; their tests use `choose_blocks` and `plot_panels`.
+- One table, `COMPATIBILITY` in `projections.py`, keyed by (layout, channel), holds the blocks, the sign and every refusal text.
+- `choose_blocks` (now also given `normalize` and `overlay`) and the command line's early check both read it; the CLI checks before parsing.
+- `BlockChoice` carries `tag` (output name), `quantity` (colour bar and legend text) and `eigen(block)`; `Block` keeps only the projection index and heading.
+- The command line cuts the panels to the band window and shifts energies once; `plot_panels` takes energies relative to `zero` and draws them as given.
+- Review fixes: every refusal that needs no file now comes before the parse, in the command line's `_check_flags`; tests mock the parser to prove it.
+- Those are the default output in the vasprun's own folder without `--output`, `--kpoint-stride` below 1, and `--overlay` without `--select`.
+- Also before the parse: more than 6 `--select` terms with `--overlay`, and a `--label-series` count that differs from the `--select` count.
+- So the earlier regression, where a stride below 1 was refused only after parsing, is resolved; `stride_indices` and `build_series` keep their checks for library callers.
+- `plot_panels` refuses an empty panel list, a panel without series and a panel whose k-point count differs from the path, before drawing.
+- The default figure size is computed only in `plot_panels`; `_figure` takes the final size. All four docs figures re-render byte-identical.
+- Every function in `vasp_orbital_plotter/` has exactly one header comment line; longer explanations moved into docstrings.
+- Styles are one dict per preset (`scale` and `rc`) in `options.py`; `validate` reads the rcParams file once and keeps it on the options.
+- `SERIES_COLOURS` moved to `options.py` and `MAX_SERIES` is its length; series colours are assigned only with `--overlay`.
+- Assumption: mx, my, mz are used as read from the file; captions say "sign convention unverified".
+- Assumption: noncollinear runs with LSORBIT = F are plotted like SOC runs (same four blocks); their total-charge figures carry a caption giving LSORBIT.
+- Assumption: collinear plots are verified on the synthetic fixture only; no real ISPIN = 2 band file is in the data.
+- Unverified: the mx, my, mz convention against VASP's documentation, and its behaviour with a SAXIS other than 0 0 1.
+- Unverified: collinear and nonmagnetic plots on real files; fat-band weights against VASPKIT (that needs PROCAR, which the rules forbid).
+- Question for Diana: is marker area proportional to the raw weight what you want, or should the default follow VASPKIT's scaling?
+- Question for Diana: should the default output in a run folder be refused as now, or written there, which breaks the read-only rule for data folders?
+- Question for Diana: for collinear runs, is two panels (both spins) the right default, or should one spin be the default?
+- Question for Diana: do you prefer another default energy window, figure size or colour map for papers?
+- Question for Diana: can you confirm the sign and axis convention of mx, my, mz, for example relative to SAXIS?
+- Question for Diana: should noncollinear runs without SOC (LSORBIT = F) be treated like SOC runs, as assumed here?
+- Question for Diana: do you have a real collinear ISPIN = 2 band run with LORBIT = 11 we may use for checks?
+
 ## Orbital-projected band plotter, stage 2, 30 October 2026
 
 - Branch `orbital-plotter-stage2`, off main c54d570, in the worktree `worktrees/orbital-plotter-stage2`. Merged into main on 30 October 2026 after review and tests.

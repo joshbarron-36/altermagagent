@@ -172,7 +172,7 @@ The right panel is the chat.
 The package `vasp_orbital_plotter` draws fat-band and colour-projected band structures straight from a VASP `vasprun.xml`.
 It needs no VASPKIT, PROCAR or EIGENVAL; the band run must have LORBIT = 11 so that the file holds the `<projected>` block.
 It is installed with the steps above, as the command `vasp-orbital-bands`; `python -m vasp_orbital_plotter` works the same way.
-Diana's specification is in `docs/orbital_plotter_spec.md`; this is stage 2 of three.
+Diana's specification is in `docs/orbital_plotter_spec.md`; stages 1 to 3 are built.
 
 In a folder with `vasprun.xml`, one command plots the d bands of every Mn ion:
 
@@ -203,7 +203,6 @@ vasp-orbital-bands inspect --vasprun run/vasprun.xml
 - Orbital names follow the file's own labels, ignoring case, spaces, `_`, `^` and `-`; the shell letter is optional, so `dx2-y2` finds `x2-y2`.
 - Groups: `s`, `p`, `d`, `f` (all components of that shell in the file), `t2g`, `eg` and `all`; an incomplete group is refused.
 - The weight is the sum of VASP's stored values over the chosen ions and orbitals; `--normalize` divides by the total of each state.
-- Noncollinear and SOC files use the total-charge block; collinear ISPIN = 2 files use spin up for now, with a note.
 - Energies are E − E_F by default; `--absolute` keeps absolute energies and `--efermi` overrides the file's Fermi level.
 - `--emin` and `--emax` are relative to the Fermi level unless `--absolute` is given; the default window is −3 to 3 eV.
 - If no band reaches the window, the figure is still written with empty axes, and a `note:` line says so.
@@ -215,11 +214,53 @@ vasp-orbital-bands inspect --vasprun run/vasprun.xml
 - The format follows the extension: PNG, SVG or PDF; `--dpi`, `--figsize`, `--font-size`, `--cmap`, `--cmin` and `--cmax` adjust the look.
 - A bad option, atom or orbital stops with one `error:` line and exit code 2; an unknown orbital lists the available ones.
 
+### Spin, magnetisation, overlays and formatting (stage 3)
+
+```bash
+vasp-orbital-bands --vasprun cr/vasprun.xml --element Cr --orbitals d --spin up --output cr_d_up.png
+vasp-orbital-bands --vasprun cr/vasprun.xml --element Cr --orbitals d --spin both --mode color --output cr_d_spins.png
+vasp-orbital-bands --vasprun run/vasprun.xml --element Mn --orbitals d --component mz --mode color --output mn_d_mz.png
+vasp-orbital-bands --vasprun run/vasprun.xml --select Mn:d --select Te:p --overlay --output overlay.png
+vasp-orbital-bands --vasprun run/vasprun.xml --select Mn:d --select Te:p --overlay --label-series "Mn 3d" --label-series "Te 5p" --mode color --output overlay_colour.pdf
+vasp-orbital-bands --vasprun run/vasprun.xml --element Mn --orbitals d --label-map 'C0=C$_0$,S=X' --style talk --despine --output talk.svg
+vasp-orbital-bands --vasprun big/vasprun.xml --element Cr --orbitals d --kpoint-stride 2 --float32 --output big.png
+```
+
+- `--spin up|down|both` is for collinear ISPIN = 2 files; each spin uses its own weights and its own eigenvalues.
+- The default for collinear files is `both`: two panels side by side sharing the energy axis, one colour scale.
+- Without `--figsize` each panel is 6 by 4.5 inches, so two panels make a 12 inch wide figure; an explicit `--figsize` is the whole figure.
+- `--component total|mx|my|mz` is for noncollinear and SOC files; the default is `total`, the charge projection.
+- mx, my and mz are magnetisation blocks, never spin channels; they are signed and drawn with signed colours.
+- Colour mode uses a diverging map (`--cmap-signed`, default RdBu_r) with a grey middle at zero, symmetric about the largest |value|.
+- Fat-band mode draws red markers for positive and blue for negative values, with area proportional to |value|.
+- Each mx, my or mz figure has a caption saying "sign convention unverified" and the run's LSORBIT; the sign is as read from the file.
+- Noncollinear runs without SOC (LSORBIT = F) are plotted like SOC runs, with a caption giving LSORBIT; this is an assumption until Diana confirms.
+- `--spin` on a nonmagnetic or noncollinear file, or `--component mx` on a nonmagnetic or collinear file, stops with an `error:` line naming the right option.
+- `--normalize` and `--overlay` are refused for mx, my and mz.
+- Without `--overlay`, repeated `--select` terms are summed; with it, each term is its own series, colour and legend entry (at most 6).
+- In colour mode an overlay colours each state by its dominant series, faded to grey as that weight falls to zero; there is no colour bar.
+- `--label-series` (repeatable, one per `--select`) names the series in the legend.
+- `--label-map 'G=Γ,C0=C$_0$'` renames path labels (single quotes keep the shell off the `$` signs); keys match the printed or the typed name, and mathtext renders.
+- Entries are split at commas, except inside `$...$` mathtext or braces, so `'X=X$_{1,2}$,G=Γ'` renames two labels.
+- `--no-labels` keeps the high-symmetry lines and drops their names; an unknown `--label-map` key lists the labels on the path.
+- `--style paper` (default) is the stage 2 look; `--style talk` scales fonts by 1.4, lines by 1.5 and marker area by 2.
+- `--rcparams-file style.json` applies a JSON object of Matplotlib rcParams; `--despine` removes the top and right frame lines.
+- `--title` replaces the title and `--no-title` removes it; ticks point inwards on the bands and the colour bar.
+- SVG and PDF output is fully vector, with editable TrueType text in PDF; `--rasterize` embeds markers and lines as an image instead.
+- `--kpoint-stride N` plots every Nth k-point of each segment and always keeps both segment ends.
+- Weights are summed only for bands that reach the energy window and only at the kept k-points; `--float32` halves the memory of the projections.
+
 Mn d fat bands and Te p colour projection of Diana's MnTe `9.2-band` run (SOC, total charge):
 
 ![Mn d fat bands of MnTe](docs/figures/orbital_plotter/mnte_Mn_d_fatband.png)
 
 ![Te p colour projection of MnTe](docs/figures/orbital_plotter/mnte_Te_p_color.png)
+
+Signed mz projection of the Mn d states (sign convention unverified), and an overlay of Mn d and Te p, from the same run:
+
+![Mn d mz projection of MnTe](docs/figures/orbital_plotter/mnte_Mn_d_mz_color.png)
+
+![Mn d and Te p overlay of MnTe](docs/figures/orbital_plotter/mnte_Mn_d_Te_p_overlay.png)
 
 ## Open a project directly
 

@@ -12,16 +12,16 @@ import orbital_vasprun_builder as fx  # noqa: E402
 from vasp_orbital_plotter.parser import parse_vasprun  # noqa: E402
 from vasp_orbital_plotter.projections import (SelectionError, available_groups, build_selection,  # noqa: E402
                                               orbital_column, parse_atoms, resolve_orbital, resolve_orbitals,
-                                              select_component, select_weights, shell_columns)
+                                              choose_blocks, select_weights, shell_columns)
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "orbital"
 TOL = 1e-9
 VASP_LABELS = ["s", "py", "pz", "px", "dxy", "dyz", "dz2", "dxz", "x2-y2"]
 
 
-# Weights of a selection from the block that select_component picks.
+# Weights of a selection from the first block that choose_blocks picks by default.
 def weights_of(data, selection, normalize: bool = False) -> np.ndarray:
-    return select_weights(data, selection, select_component(data)[0], normalize=normalize)
+    return select_weights(data, selection, choose_blocks(data).blocks[0].projection, normalize=normalize)
 
 
 # Hand sum of the fixture formula over 0-based ions and orbital columns for component c, shape (kpoint, band).
@@ -182,16 +182,16 @@ class WeightSums(unittest.TestCase):
 
     # Noncollinear files use the "total" block, never mx, my or mz.
     def test_noncollinear_uses_total(self) -> None:
-        index, label, note = select_component(self.soc)
-        self.assertEqual((index, label, note), (0, "total", None))
+        choice = choose_blocks(self.soc)
+        self.assertEqual((choice.blocks[0].projection, choice.label, choice.note), (0, "total", None))
         selection = build_selection(self.soc, atoms="2", orbitals="d")
         np.testing.assert_allclose(weights_of(self.soc, selection), hand_sum([1], [4, 5, 6, 7, 8], signed=True), atol=TOL)
 
-    # Collinear files use the spin-up block in stage 2 and say so in a note.
+    # Collinear files draw spin up first, and the default choice says that both spins are drawn.
     def test_collinear_uses_spin_up_with_note(self) -> None:
-        index, label, note = select_component(self.collinear)
-        self.assertEqual((index, label), (0, "up"))
-        self.assertIn("spin-up", note)
+        choice = choose_blocks(self.collinear)
+        self.assertEqual((choice.blocks[0].projection, choice.blocks[0].heading), (0, "spin up"))
+        self.assertIn("two panels", choice.note)
         selection = build_selection(self.collinear, atoms="3", orbitals="f")
         np.testing.assert_allclose(weights_of(self.collinear, selection), hand_sum([2], list(range(9, 16))), atol=TOL)
 
