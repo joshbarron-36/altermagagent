@@ -1,5 +1,59 @@
 # Handoff note
 
+## Orbital-projected band plotter, stage 1, 30 October 2026
+
+- Branch `orbital-plotter`, off main af4227f. Not committed yet; Josh's session reviews before any commit.
+- New package `vasp_orbital_plotter/`, a sibling of `altermagagent/`; nothing in `altermagagent/` changed.
+- Diana's specification is now in `docs/orbital_plotter_spec.md`: her text, lightly reformatted (one long sentence split, one table rebuilt, five glued line breaks restored).
+- The duplicated sections 9 to 12 of the specification are removed.
+- Stage 1 only: the parser in `vasp_orbital_plotter/parser.py` and the command `vasp-orbital-bands inspect <vasprun.xml>`.
+- `projections.py`, `kpath.py` and `plotting.py` are stubs that raise NotImplementedError naming stage 2.
+- `pyproject.toml` lists the new package and the console script; `lxml==6.1.3` is pinned there and in `requirements.txt`.
+- The parser streams the file once with lxml iterparse and frees each block after reading it; .xml.gz is accepted.
+- It reads ISPIN, LSORBIT, LNONCOLLINEAR, LORBIT and NBANDS from `<parameters>`, the values VASP applied.
+- It reads the Fermi energy, structure, reciprocal lattice, k-points and weights, eigenvalues, occupations and `<projected>` weights.
+- Projection array shape: (component, kpoint, band, ion, orbital); eigenvalues and occupations: (spin, kpoint, band).
+- Components: "total" without spin; "up", "down" for ISPIN = 2; "total", "mx", "my", "mz" for noncollinear runs.
+- Orbital labels come from the `<field>` entries of the file, in file order; nothing is hard-coded.
+- Users give ions in VASP's 1-based numbering; `ion_index(n)` returns n - 1 and refuses numbers out of range.
+- Without `<projected>`, the parser stops and asks for LORBIT = 11; it never uses `<dos><partial>` in its place.
+- Spin-block counts are read from the file and checked against the layout's labels; `<dimension>` order may vary and is transposed.
+- Wrong band, k-point or spin-block counts, unknown dimension names and truncated XML stop with a message that names the place.
+- With several `<calculation>` blocks, all band data comes from the last one only, and a note says so.
+- If only an earlier `<calculation>` has `<projected>`, the parser stops instead of pairing those weights with other eigenvalues.
+- Parse errors never escape as tracebacks: empty `<v>` rows, a missing ion `<set>` and similar faults raise VasprunParseError.
+- The command prints such errors as one `error:` line and exits with code 2.
+- Progress also works for .xml.gz files; there the percentage counts compressed bytes read from disk.
+- `ion_index` refuses True and False, which Python would otherwise accept as the integers 1 and 0.
+- The real data, read-only: 13 vasprun.xml files, 19 MB to 785 MB, all with `<projected>` and LORBIT = 11.
+- All 13 are noncollinear (LNONCOLLINEAR = T), including the CrSe "noSOC" runs, which have LSORBIT = F.
+- Their INCAR says ISPIN = 2, but VASP applied ISPIN = 1; the parser uses the applied value and adds a note.
+- Every file has 4 projection blocks (total, mx, my, mz) and 1 eigenvalue block.
+- Orbital fields in every file: s, py, pz, px, dxy, dyz, dz2, dxz, x2-y2 (VASP 5.4.4 and 6.3.2 write the same order).
+- VASP 6.3.2 also writes eigenvalues inside `<projected>`; the parser reads them and notes any difference from the main block.
+- The MnTe band runs have `<kpoints_labels>`; their numbers are KPOINTS corner lines, not k-point indices, so they are kept raw.
+- Verified against pymatgen 2026.9.24 `Vasprun(parse_projected_eigen=True)`: MnTe `9.2-band` and `9.4-band`, full files.
+- Result there: eigenvalues, occupations, Fermi energy, k-points, k-weights, species, total weights and mx, my, mz all differ by 0.0.
+- Also verified: CrSe `2-SOC/2-bands` and `1-noSOC/030_bands`, sliced to their first 40 k-points outside the data folder; differences 0.0.
+- The slice agrees exactly with the first 40 k-points of the full CrSe SOC band file read by the parser.
+- Full CrSe `2-SOC/2-bands` (354 MB, 640 k-points, 120 bands, 12 ions): 6.7 to 7.0 s and 291 MB peak memory, about the size of the array.
+- Largest file, CrSe `2-SOC/1-scf` (785 MB, 1440 k-points): 20.3 s and 626 MB peak memory for a 597 MB weight array.
+- Tests: `tests/test_orbital_parser.py`, 32 tests, on synthetic fixtures in `tests/fixtures/orbital/` and on the MnTe `9.2-band` file.
+- The fixtures cover nonmagnetic, ISPIN = 2 (with f orbitals) and SOC layouts, plus missing, short, extra and truncated blocks and a permuted dimension order.
+- `mnte_9.2-band_trimmed_vasprun.xml` is cut from the MnTe `9.2-band` file to 2 k-points and 4 bands; a test checks it against the full file.
+- The real-file tests write the labels (total, mx, my, mz) and the single eigenvalue block literally, not from the parser's tables.
+- Rebuild the fixtures with `python tests/fixtures/orbital_vasprun_builder.py`; a test checks the stored files match the builder.
+- Rebuild the trimmed fixture with `python tests/fixtures/orbital_vasprun_builder.py --trim <path to 9.2-band/vasprun.xml>`.
+- Full check: `PYTHONPATH=. python -m unittest discover -s tests` runs 108 tests, OK, one skip (76 before).
+- Unverified: nonmagnetic and collinear ISPIN = 2 layouts on real files, because no such file is in the data; only synthetic fixtures and pymatgen.
+- Unverified: multi-gigabyte files and real .xml.gz files.
+- Unverified: the sign and axis convention of mx, my, mz against VASP's own documentation; pymatgen reads them the same way.
+- Not done (stage 2 and 3): atom and orbital selection, orbital groups, k-path distances, plots and the full command line.
+- Question for Diana: the CrSe "noSOC" runs are noncollinear without SOC; should the plotter treat them like SOC runs (total charge only)?
+- Question for Diana: do you have a nonmagnetic or a collinear ISPIN = 2 band run with LORBIT = 11 we may use for checks?
+- Question for Diana: the MnTe `9.2-band` folder holds VASPKIT output (BAND.dat, KLABELS); may stage 2 compare its fat bands with them?
+- Question for Diana: should the k-point labels come from `<kpoints_labels>` and the line-mode divisions when no labels are given by hand?
+
 ## Status for Diana, 26 October 2026
 
 - Main now holds your MAGMOM fix (pull request 1), the rescan and delete actions, and the spin projection step. Main is 1e2eb10.

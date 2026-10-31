@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<modeling>
+ <generator>
+  <i name="program" type="string">vasp </i>
+  <i name="version" type="string">6.3.2  </i>
+ </generator>
+ <incar>
+  <i type="int" name="ISPIN">     1</i>
+  <i type="logical" name="LSORBIT"> F  </i>
+  <i type="int" name="NBANDS">    3</i>
+  <i type="int" name="LORBIT">    10</i>
+ </incar>
+ <kpoints>
+  <generation param="listgenerated">
+   <i name="divisions" type="int">       2 </i>
+   <v>       0.00000000       0.00000000       0.00000000 </v>
+   <v>       0.50000000       0.00000000       0.00000000 </v>
+   <v>       0.50000000       0.25000000       0.00000000 </v>
+  </generation>
+  <varray name="kpointlist" >
+   <v>       0.00000000       0.00000000       0.00000000 </v>
+   <v>       0.25000000       0.00000000       0.00000000 </v>
+   <v>       0.50000000       0.00000000       0.00000000 </v>
+   <v>       0.50000000       0.25000000       0.00000000 </v>
+  </varray>
+  <varray name="weights" >
+   <v>       0.25000000 </v>
+   <v>       0.25000000 </v>
+   <v>       0.25000000 </v>
+   <v>       0.25000000 </v>
+  </varray>
+ </kpoints>
+ <parameters>
+  <separator name="electronic" >
+   <separator name="electronic spin" >
+   <i type="int" name="ISPIN">     1</i>
+   <i type="logical" name="LNONCOLLINEAR"> F  </i>
+   <i type="logical" name="LSORBIT"> F  </i>
+   </separator>
+   <i type="int" name="NBANDS">     3</i>
+   <i type="int" name="NELM">    60</i>
+  </separator>
+  <separator name="ionic" >
+   <i type="int" name="NSW">     0</i>
+   <i type="int" name="IBRION">    -1</i>
+   <i type="int" name="ISIF">     2</i>
+  </separator>
+  <separator name="dos" >
+   <i type="int" name="LORBIT">     10</i>
+  </separator>
+ </parameters>
+ <atominfo>
+  <atoms>       3 </atoms>
+  <array name="atoms" >
+   <dimension dim="1">ion</dimension>
+   <field type="string">element</field>
+   <field type="int">atomtype</field>
+   <set>
+    <rc><c>Cr</c><c>   1</c></rc>
+    <rc><c>Se</c><c>   2</c></rc>
+    <rc><c>Cr</c><c>   1</c></rc>
+   </set>
+  </array>
+ </atominfo>
+ <structure name="initialpos" >
+  <crystal>
+   <varray name="basis" >
+    <v>       3.60000000       0.00000000       0.00000000 </v>
+    <v>      -1.80000000       3.11769145       0.00000000 </v>
+    <v>       0.00000000       0.00000000       5.90000000 </v>
+   </varray>
+   <i name="volume">     66.18 </i>
+   <varray name="rec_basis" >
+    <v>       0.27777778       0.16037507       0.00000000 </v>
+    <v>       0.00000000       0.32075015       0.00000000 </v>
+    <v>       0.00000000       0.00000000       0.16949153 </v>
+   </varray>
+  </crystal>
+  <varray name="positions" >
+   <v>       0.00000000       0.00000000       0.00000000 </v>
+   <v>       0.33333333       0.66666667       0.25000000 </v>
+   <v>       0.00000000       0.00000000       0.50000000 </v>
+  </varray>
+ </structure>
+ <calculation>
+  <scstep>
+   <energy><i name="e_fr_energy">     -1.0 </i></energy>
+  </scstep>
+  <structure>
+   <crystal>
+    <varray name="basis" >
+     <v>       3.60000000       0.00000000       0.00000000 </v>
+     <v>      -1.80000000       3.11769145       0.00000000 </v>
+     <v>       0.00000000       0.00000000       5.90000000 </v>
+    </varray>
+    <i name="volume">     66.18 </i>
+    <varray name="rec_basis" >
+     <v>       0.27777778       0.16037507       0.00000000 </v>
+     <v>       0.00000000       0.32075015       0.00000000 </v>
+     <v>       0.00000000       0.00000000       0.16949153 </v>
+    </varray>
+   </crystal>
+   <varray name="positions" >
+    <v>       0.00000000       0.00000000       0.00000000 </v>
+    <v>       0.33333333       0.66666667       0.25000000 </v>
+    <v>       0.00000000       0.00000000       0.50000000 </v>
+   </varray>
+  </structure>
+  <eigenvalues>
+   <array>
+    <dimension dim="1">band</dimension>
+    <dimension dim="2">kpoint</dimension>
+    <dimension dim="3">spin</dimension>
+    <field>eigene</field>
+    <field>occ</field>
+    <set>
+     <set comment="spin 1">
+      <set comment="kpoint 1">
+       <r>   -2.0000    1.0000 </r>
+       <r>   -0.5000    0.0000 </r>
+       <r>    1.0000    0.0000 </r>
+      </set>
+      <set comment="kpoint 2">
+       <r>   -1.8750    1.0000 </r>
+       <r>   -0.3750    0.0000 </r>
+       <r>    1.1250    0.0000 </r>
+      </set>
+      <set comment="kpoint 3">
+       <r>   -1.7500    1.0000 </r>
+       <r>   -0.2500    0.0000 </r>
+       <r>    1.2500    0.0000 </r>
+      </set>
+      <set comment="kpoint 4">
+       <r>   -1.6250    1.0000 </r>
+       <r>   -0.1250    0.0000 </r>
+       <r>    1.3750    0.0000 </r>
+      </set>
+     </set>
+    </set>
+   </array>
+  </eigenvalues>
+  <dos>
+   <i name="efermi">       1.23456789 </i>
+   <total>
+    <array>
+     <dimension dim="1">gridpoints</dimension>
+     <dimension dim="2">spin</dimension>
+     <field>energy</field>
+     <field>total</field>
+     <field>integrated</field>
+     <set>
+      <set comment="spin 1">
+       <r>   -1.0000   0.5000   0.0000 </r>
+       <r>    0.0000   0.7000   0.6000 </r>
+      </set>
+     </set>
+    </array>
+   </total>
+   <partial>
+    <array>
+     <dimension dim="1">gridpoints</dimension>
+     <dimension dim="2">spin</dimension>
+     <dimension dim="3">ion</dimension>
+     <field>energy</field>
+     <field>    s</field>
+     <field>   py</field>
+     <field>   pz</field>
+     <field>   px</field>
+     <field>  dxy</field>
+     <field>  dyz</field>
+     <field>  dz2</field>
+     <field>  dxz</field>
+     <field>x2-y2</field>
+     <set>
+      <set comment="ion 1">
+       <set comment="spin 1">
+        <r> -1.0  0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 </r>
+       </set>
+      </set>
+      <set comment="ion 2">
+       <set comment="spin 1">
+        <r> -1.0  0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 </r>
+       </set>
+      </set>
+      <set comment="ion 3">
+       <set comment="spin 1">
+        <r> -1.0  0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 0.9999 </r>
+       </set>
+      </set>
+     </set>
+    </array>
+   </partial>
+  </dos>
+ </calculation>
+ <structure name="finalpos" >
+  <crystal>
+   <varray name="basis" >
+    <v>       3.60000000       0.00000000       0.00000000 </v>
+    <v>      -1.80000000       3.11769145       0.00000000 </v>
+    <v>       0.00000000       0.00000000       5.90000000 </v>
+   </varray>
+   <i name="volume">     66.18 </i>
+   <varray name="rec_basis" >
+    <v>       0.27777778       0.16037507       0.00000000 </v>
+    <v>       0.00000000       0.32075015       0.00000000 </v>
+    <v>       0.00000000       0.00000000       0.16949153 </v>
+   </varray>
+  </crystal>
+  <varray name="positions" >
+   <v>       0.00000000       0.00000000       0.00000000 </v>
+   <v>       0.33333333       0.66666667       0.25000000 </v>
+   <v>       0.00000000       0.00000000       0.50000000 </v>
+  </varray>
+ </structure>
+</modeling>

@@ -34,7 +34,7 @@ It is built at the OSI hackathon on 21 and 22 October 2026, as a free and open t
 
 ## Team rules
 
-- One branch per person, named by first name: `diana`, `poulami`, `josh`.
+- One branch per task, named after the task (for example `orbital-plotter`), with a pull request to `main`.
 - Nobody edits another person's files.
 - Only Josh's session merges into `main`, and only after a test.
 - `HANDOFF.md` is the only place for "done, next, blocked".

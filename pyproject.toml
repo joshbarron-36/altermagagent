@@ -16,10 +16,12 @@ dependencies = [
     "matplotlib==3.11.2",
     "plotly==7.1.0",
     "numpy==2.5.4",
+    "lxml==6.1.3",
 ]
 
 [project.scripts]
 altermag = "altermagagent.cli:main"
+vasp-orbital-bands = "vasp_orbital_plotter.cli:main"
 
 [tool.setuptools]
-packages = ["altermagagent"]
+packages = ["altermagagent", "vasp_orbital_plotter"]
