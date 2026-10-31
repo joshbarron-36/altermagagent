@@ -1,5 +1,63 @@
 # Handoff note
 
+## Orbital-projected band plotter, stage 2, 30 October 2026
+
+- Branch `orbital-plotter-stage2`, off main c54d570, in the worktree `worktrees/orbital-plotter-stage2`. Merged into main on 30 October 2026 after review and tests.
+- Plan: `orbital-plotter-plan_v2.html` next to the repository (selection grammar, label sources, plot modes, validation, open points).
+- Nothing in `altermagagent/` changed; the plotter reuses helpers of `altermagagent/bands.py` (pretty_label, build_ticks, read_klabels, klabels_ticks, mpl_label, segments, slug).
+- No new dependency: Matplotlib, NumPy and lxml were already pinned.
+- `projections.py`: ions by 1-based number, range or element; the 0-based conversion goes through the parser's `ion_index`.
+- Orbitals are matched to the file's `<field>` labels by one rule: case, spaces, `_`, `^` and `-` are ignored, and the shell letter is optional.
+- So `dx2-y2` finds VASP's `x2-y2` and `z2` finds `dz2`; the old alias table (`dx2`, `d3z2-r2`, `dzx`) is gone.
+- Groups s, p, d, f come from the file labels (a label without a shell letter, such as `x2-y2`, continues the shell before it).
+- A shell group needs all 1, 3, 5 or 7 components; t2g and eg are the only hand-written groups; `all` is every column.
+- An unknown orbital stops with one `error:` line listing the file's orbitals and usable groups, exit code 2.
+- `--select ATOMS:ORBITALS` (repeatable) sums several combinations; a pair named twice is counted once.
+- Weight = plain sum of the stored values over the chosen (ion, orbital) pairs; raw by default, `--normalize` divides by the state's total over all ions and orbitals.
+- Projection block: "total" for nonmagnetic and noncollinear files; spin up (block 0, eigenvalue block 0) for collinear files, with a printed note.
+- `kpath.py`: distance = 2π × rec_basis, in 1/Å, the same convention as pymatgen's reciprocal_lattice used by `wannier_compare.reference_path`.
+- Segments from a matching line-mode KPOINTS next to vasprun.xml, else the vasprun's line-mode divisions, else exactly repeated k-points.
+- Otherwise the path is one continuous line with a note; the former jump heuristic (steps over ten times the median) is removed.
+- At a segment start the distance does not grow and no line joins the two branches.
+- Labels: `--high-symmetry "1:G,41:M"`, else KLABELS, else `<kpoints_labels>` converted from corner numbers, else KPOINTS comments, else none.
+- The label sources are one ordered list; the first one that gives ticks wins, so the reported source always matches the ticks.
+- `plotting.py`: fat-band mode (marker area = scale × weight, default 60 points² per unit weight) and colour mode with a colour bar.
+- Colour mode colours each half-step of a band by its nearest computed state, so no two states' colours are blended; the default map is Blues without its white end.
+- Colour mode draws no grey underlay, since the coloured lines cover it completely; the regenerated Te p figure is pixel-identical without it.
+- Fat-band markers are drawn only for states inside the energy window with a positive weight.
+- Defaults: E − E_F, window −3 to 3 eV, dashed zero line, 6 × 4.5 inches, 300 dpi, font size 12; PNG, SVG or PDF by extension.
+- `cli.py`: `inspect` (`--vasprun`, `--list-atoms`, `--list-orbitals`), `plot`, and the plot flags directly on the main command; `python -m vasp_orbital_plotter` works too.
+- `--atom` and `--orbital` are accepted as other spellings of `--atoms` and `--orbitals`, matching the specification's example.
+- No other aliases (`--elements`, `--normalise`, `--labels`, `-o`) and no prefix abbreviations.
+- `--mode` accepts `fatband` or `color` only; `inspect` takes the file with `--vasprun` only, no longer as a positional argument.
+- Defaults live once, in `PlotOptions` (`options.py`); the command line reads them, and `plot_bands` runs `PlotOptions.validate` once.
+- `validate` also refuses a font size of 0 or less, a negative line width, and `--cmin` not below `--cmax`.
+- `--emin` and `--emax` are relative to the Fermi level unless `--absolute`; a window no band reaches gives empty axes, a `note:` line and exit 0.
+- `inspect`, `--list-atoms` and `--list-orbitals` parse with `with_projections=False`: orbital labels are kept, projection numbers are freed unread.
+- The listings do not require a `<projected>` block; `--list-orbitals` on such a file gives one `error:` line saying it has no orbital labels.
+- Those paths never import Matplotlib, `plotting.py` or `kpath.py`; on the MnTe run the light parse takes about half the time.
+- `--vasprun` defaults to `vasprun.xml`. Without `--output`, the file goes to the current folder, but never next to the vasprun.xml: there the command stops and asks for `--output`.
+- Exit codes: 0 for success, 2 for every user error, printed as one `error:` line without a traceback (argparse errors included).
+- Only the project's own errors and a missing, folder or unreadable input path become `error:` lines; any other error keeps its traceback.
+- An empty `<field></field>` orbital label in `<projected>` stops the parser with a VasprunParseError naming the column.
+- Verified on MnTe `9.2-band`, read-only: band energies agree with VASPKIT's BAND.dat to 5.0e-5 eV at most (100 k-points × 60 bands).
+- That is the rounding of vasprun.xml, which stores 4 decimals, while BAND.dat comes from EIGENVAL with 6; REFORMATTED_BAND.dat (4 decimals) agrees to 9.6e-5 eV.
+- K-distances agree with BAND.dat to 4.9e-6 1/Å (its 5-decimal rounding); path length 4.274183 here and 4.27418 there, so VASPKIT also uses 1/Å with 2π.
+- The KLABELS positions (0.000, 0.875, 1.380, 2.390, 3.400, 4.274) sit at our segment ends to within their 3-decimal rounding.
+- Labels on that run come from KLABELS: Γ, Y, C₀, Σ₀, Γ, S; segments from KPOINTS, five of 20 points, continuous, no breaks.
+- Example figures from that run: `worktrees/orbital-plotter-stage2-figures/` (Mn d fat bands, Te p colour, Mn eg wide window as PDF, Mn1 t2g normalised as SVG).
+- Two of them are in the repository: `docs/figures/orbital_plotter/mnte_Mn_d_fatband.png` (218 KB) and `mnte_Te_p_color.png` (146 KB), at 150 dpi; the README shows both.
+- README: new section "Orbital-projected bands from vasprun.xml". Spec: the glued `--list-orbitals` line is split; the header now says six line breaks restored.
+- Tests: `test_orbital_projections.py` (20), `test_orbital_kpath.py` (21, 4 on the real run), `test_orbital_plotting.py` (17, 1 on the real run).
+- Full check: `PYTHONPATH=. python -m unittest discover -s tests` runs 168 tests, OK, one skip (108 before stage 2). Tests write only into temporary folders.
+- Unverified: the fat-band weights against VASPKIT, because that needs PROCAR, which the repository rule forbids reading; only energies and distances were compared.
+- Unverified: nonmagnetic and collinear plots on real files (none in the data), and real KPOINTS paths with breaks (the MnTe paths are continuous).
+- Unverified: Cartesian line-mode KPOINTS files; their corners are not checked against the k-points, only the count is.
+- Question for Diana: is marker area proportional to the raw weight what you want, or should the default follow VASPKIT's scaling?
+- Question for Diana: should the default output in a run folder be refused as now, or written there, which breaks the read-only rule for data folders?
+- Question for Diana: for collinear runs, is spin up a sensible stage 2 default until stage 3 adds the spin choice and two panels?
+- Question for Diana: do you prefer another default energy window, figure size or colour map for papers?
+
 ## Orbital-projected band plotter, stage 1, 30 October 2026
 
 - Branch `orbital-plotter`, off main af4227f. Not committed yet; Josh's session reviews before any commit.

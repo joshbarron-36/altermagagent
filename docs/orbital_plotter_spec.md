@@ -1,6 +1,6 @@
 # Orbital-projected band plotter: specification
 
-This is the specification written by Diana on 26 October 2026, her text, lightly reformatted: one long sentence split, one table rebuilt, five glued line breaks restored.
+This is the specification written by Diana on 26 October 2026, her text, lightly reformatted: one long sentence split, one table rebuilt, six glued line breaks restored.
 The duplicated sections 9 to 12 are removed.
 
 ```text
@@ -105,7 +105,8 @@ python plot_orbitals.py \
 Provide inspection commands:
 python plot_orbitals.py --vasprun vasprun.xml --list-atoms
 
-python plot_orbitals.py --vasprun vasprun.xml --list-orbitalsAtom indices exposed to users should follow VASP's conventional 1-based indexing.
+python plot_orbitals.py --vasprun vasprun.xml --list-orbitals
+Atom indices exposed to users should follow VASP's conventional 1-based indexing.
 Internally, Python arrays may use 0-based indexing, but the conversion must be explicit and carefully tested.
 The program should support orbital groups:
 

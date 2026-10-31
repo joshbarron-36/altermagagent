@@ -237,6 +237,34 @@ class ErrorTest(unittest.TestCase):
         self.assertIsNone(data.projections)
         self.assertEqual(data.eigenvalues.shape, (1, 4, 3))
 
+    # Without projections: the numbers are not stored, but labels, components and the block's presence are.
+    def test_without_projections(self):
+        full = parse_vasprun(FIXTURES / "soc_vasprun.xml")
+        light = parse_vasprun(FIXTURES / "soc_vasprun.xml", with_projections=False)
+        self.assertIsNone(light.projections)
+        self.assertIsNone(light.projected_eigenvalues)
+        self.assertTrue(light.has_projected_block and full.has_projected_block)
+        self.assertEqual((light.orbital_labels, light.projection_components), (full.orbital_labels, full.projection_components))
+        np.testing.assert_array_equal(light.eigenvalues, full.eigenvalues)
+        self.assertIn("present, not read; shape (4, 4, 3, 3, 9)", "\n".join(light.summary_lines()))
+        missing = parse_vasprun(FIXTURES / "no_projected_vasprun.xml", require_projections=False, with_projections=False)
+        self.assertFalse(missing.has_projected_block)
+        with self.assertRaises(ProjectionsMissingError):
+            parse_vasprun(FIXTURES / "no_projected_vasprun.xml", with_projections=False)
+
+    # An empty <field></field> orbital label is refused as a parse error, with and without the projection numbers.
+    def test_empty_orbital_field(self):
+        head, tail = (FIXTURES / "nonmagnetic_vasprun.xml").read_text(encoding="latin-1").split("<projected>")
+        self.assertIn("<field>   py</field>", tail)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "vasprun.xml"
+            path.write_text(head + "<projected>" + tail.replace("<field>   py</field>", "<field></field>", 1), encoding="latin-1")
+            for full in (True, False):
+                with self.subTest(with_projections=full):
+                    with self.assertRaises(VasprunParseError) as caught:
+                        parse_vasprun(path, with_projections=full)
+                    self.assertIn("empty <field> orbital label (column 2)", str(caught.exception))
+
     # A k-point block with one band too few is refused with its position.
     def test_missing_band(self):
         with self.assertRaises(VasprunLayoutError) as caught:
@@ -313,7 +341,7 @@ class ErrorTest(unittest.TestCase):
             self.assertIn("kpointlist", str(caught.exception))
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
-                code = cli.main(["inspect", str(path)])
+                code = cli.main(["inspect", "--vasprun", str(path)])
         self.assertEqual(code, 2)
         self.assertTrue(err.getvalue().startswith("error: "))
 
@@ -369,7 +397,7 @@ class CliTest(unittest.TestCase):
     def test_inspect(self):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = cli.main(["inspect", str(FIXTURES / "soc_vasprun.xml")])
+            code = cli.main(["inspect", "--vasprun", str(FIXTURES / "soc_vasprun.xml")])
         self.assertEqual(code, 0)
         text = out.getvalue()
         self.assertIn("layout: noncollinear", text)
@@ -380,7 +408,7 @@ class CliTest(unittest.TestCase):
     def test_inspect_missing(self):
         err = io.StringIO()
         with contextlib.redirect_stderr(err):
-            code = cli.main(["inspect", str(FIXTURES / "no_projected_vasprun.xml")])
+            code = cli.main(["inspect", "--vasprun", str(FIXTURES / "no_projected_vasprun.xml")])
         self.assertEqual(code, 2)
         self.assertIn("LORBIT = 11", err.getvalue())
 

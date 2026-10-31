@@ -1,6 +1,7 @@
 """Shared test setup: the synthetic demo tree in a temporary folder and a temporary index home per test."""
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,13 @@ def demo_tree():
     subprocess.run([sys.executable, str(REPO / "demo" / "make_demo.py"), "--out", str(demo)],
                    check=True, capture_output=True)
     return tmp, demo
+
+
+# Make a fresh temporary folder that is removed when the running test ends; returns its path.
+def tmp_folder(test, prefix="orbital_"):
+    folder = Path(tempfile.mkdtemp(prefix=prefix))
+    test.addCleanup(shutil.rmtree, folder, True)
+    return folder
 
 
 # Point the index and default figure folder at a fresh home under parent for the running test, undone at cleanup; returns the home.

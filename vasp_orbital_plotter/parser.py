@@ -16,6 +16,8 @@ Array conventions of the returned VasprunData (all indices 0-based inside Python
 - kpoint_label_entries are the raw (number, name) pairs of <kpoints_labels>.
 - With several <calculation> blocks, band data, Fermi energy and partial-DOS flag all come from the last one alone.
 - In the VASP 6.3.2 band files checked, number n is the n-th corner line of a line-mode KPOINTS file, not a k-point index.
+- With with_projections=False the <projected> numbers are freed unread: projections is None, has_projected_block says
+  whether the block exists, and the orbital labels are still read from its <field> entries.
 """
 
 from __future__ import annotations
@@ -59,6 +61,8 @@ PROGRESS_MIN_BYTES = 50_000_000
 _STREAM_TAGS = ("generator", "incar", "kpoints", "parameters", "atominfo", "structure", "calculation",
                 "eigenvalues", "projected", "dos", "array", "set", "eigenvalues_kpoints_opt", "projected_kpoints_opt")
 _KPOINTS_OPT_TAGS = ("eigenvalues_kpoints_opt", "projected_kpoints_opt")
+# Array kind of a <projected> array that is freed without being read (parse_vasprun with with_projections=False).
+SKIPPED = "skipped"
 
 
 # Number of eigenvalue spin blocks of a layout: two for collinear ISPIN = 2, otherwise one.
@@ -109,6 +113,7 @@ class VasprunData:
     orbital_labels: list[str]
     projected_eigenvalues: np.ndarray | None = None
     has_partial_dos: bool = False
+    has_projected_block: bool = False
     notes: list[str] = field(default_factory=list)
 
     # Number of ions in the structure.
@@ -163,7 +168,12 @@ class VasprunData:
         if self.kpoint_label_entries:
             lines.append("k-point label entries (corner number:name): "
                          + ", ".join(f"{k}:{name}" for k, name in self.kpoint_label_entries))
-        if self.projections is None:
+        if self.projections is None and self.has_projected_block:
+            shape = (len(self.projection_components), self.nkpoints, self.nbands, self.nions, len(self.orbital_labels))
+            lines.append(f"projections: present, not read; shape {shape} = (component, kpoint, band, ion, orbital)")
+            lines.append(f"components: {', '.join(self.projection_components)}")
+            lines.append(f"orbitals: {', '.join(self.orbital_labels)}")
+        elif self.projections is None:
             lines.append("projections: none (no <projected> block)")
         else:
             lines.append(f"projections: shape {self.projections.shape} = (component, kpoint, band, ion, orbital)")
@@ -264,6 +274,13 @@ def detect_layout(parameters: dict[str, Any]) -> str:
     return LAYOUT_NONMAGNETIC
 
 
+# Orbital labels of a <projected> array, refusing an empty <field> so later name matching never meets a blank label.
+def _orbital_labels(fields: list[str], name: str) -> list[str]:
+    if "" in fields:
+        raise VasprunParseError(f"{name} has an empty <field> orbital label (column {fields.index('') + 1})")
+    return fields
+
+
 # Dimension names (dim 1 first) and field labels of an <array>, read from its already parsed header children.
 def _array_header(array: etree._Element) -> tuple[list[str], list[str]]:
     dims = sorted(((int(d.get("dim", "0")), (d.text or "").strip()) for d in array.iterchildren("dimension")))
@@ -309,6 +326,9 @@ class _StreamState:
         self.orbitals: list[str] = []
         self.has_partial_dos = False
         self.notes: list[str] = []
+        # Whether <projected> arrays are stored, and whether the current <calculation> has a <projected> block at all.
+        self.with_projections = True
+        self.saw_projected = False
         # Kind of the band-data array being streamed (None outside one), its plan once the header is read, and the <set> depth.
         self.array_kind: str | None = None
         self.plan: _ArrayPlan | None = None
@@ -321,7 +341,8 @@ class _StreamState:
     # Start a new <calculation>: drop the per-calculation data of the earlier one so the result never mixes two.
     def start_calculation(self) -> None:
         self.calculations += 1
-        self.earlier_projections = self.earlier_projections or self.proj is not None
+        self.earlier_projections = self.earlier_projections or self.saw_projected
+        self.saw_projected = False
         self.eigen = self.proj_eigen = self.proj = None
         self.orbitals = []
         self.efermi = None
@@ -343,16 +364,17 @@ class _StreamState:
 
 
 # Kind of band-data array an <array> starts, from its parent and grandparent tags; None for every other array.
-def _array_kind(element: etree._Element) -> str | None:
+def _array_kind(element: etree._Element, with_projections: bool = True) -> str | None:
     parent = element.getparent()
     if parent is None:
         return None
     if parent.tag == "projected":
-        return "proj"
+        return "proj" if with_projections else SKIPPED
     grand = parent.getparent()
     if parent.tag != "eigenvalues" or grand is None:
         return None
-    return {"projected": "proj_eigen", "calculation": "eigen"}.get(grand.tag)
+    kind = {"projected": "proj_eigen", "calculation": "eigen"}.get(grand.tag)
+    return SKIPPED if kind == "proj_eigen" and not with_projections else kind
 
 
 # Sentence end that states how many blocks of an axis the rest of the file implies.
@@ -375,14 +397,21 @@ def _on_start(element: etree._Element, state: _StreamState) -> None:
         state.start_calculation()
         return
     if element.tag == "array":
-        state.array_kind = _array_kind(element)
+        state.array_kind = _array_kind(element, state.with_projections)
         state.plan = None
         state.set_depth = 0
         return
     if state.array_kind is None:
         return
     state.set_depth += 1
-    if state.set_depth == 1:
+    if state.set_depth == 1 and state.array_kind == SKIPPED:
+        # Without projections only the orbital labels of <projected><array> are kept; its numbers are freed unread.
+        if element.getparent().getparent().tag == "projected":
+            state.saw_projected = True
+            state.orbitals = _orbital_labels(_array_header(element.getparent())[1], "the <projected> array")
+    elif state.array_kind == SKIPPED:
+        return
+    elif state.set_depth == 1:
         state.plan = _plan_array(element.getparent(), state.array_kind, state)
     elif state.set_depth in (2, 3):
         plan = state.plan
@@ -410,7 +439,8 @@ def _plan_array(array: etree._Element, kind: str, state: _StreamState) -> _Array
     if kind == "proj":
         if not fields:
             raise VasprunLayoutError(f"{name} has no <field> orbital labels")
-        state.orbitals = fields
+        state.orbitals = _orbital_labels(fields, name)
+        state.saw_projected = True
         blocks = len(COMPONENT_LABELS[state.layout])
     else:
         if fields[:2] != ["eigene", "occ"]:
@@ -506,6 +536,9 @@ def _read_atominfo(element: etree._Element, state: _StreamState) -> None:
 # Handle the end of a streamed element; return True when the element may be freed.
 def _on_end(element: etree._Element, state: _StreamState) -> bool:
     tag = element.tag
+    if tag == "set" and state.array_kind == SKIPPED:
+        state.set_depth -= 1
+        return True
     if tag == "set" and state.array_kind is not None:
         depth = state.set_depth
         if depth == 3:
@@ -516,7 +549,7 @@ def _on_end(element: etree._Element, state: _StreamState) -> bool:
         # Sets below the stored block are read with it and freed with it.
         return depth <= 3
     if tag == "array" and state.array_kind is not None:
-        if state.plan is not None:
+        if state.plan is not None and state.array_kind != SKIPPED:
             _check_count(state, 0)
         state.array_kind = state.plan = None
         return True
@@ -559,13 +592,15 @@ def _open(path: Path, stack: contextlib.ExitStack) -> tuple[IO[bytes], IO[bytes]
 
 
 # Stream-parse a vasprun.xml (or .xml.gz) and return its structure, k-points, eigenvalues and projections.
-def parse_vasprun(path: str | os.PathLike[str], require_projections: bool = True, progress: bool | None = None) -> VasprunData:
+def parse_vasprun(path: str | os.PathLike[str], require_projections: bool = True, progress: bool | None = None,
+                  with_projections: bool = True) -> VasprunData:
     path = Path(path)
     if not path.is_file():
         raise FileNotFoundError(f"no file at {path}")
     size = path.stat().st_size
     report = size >= PROGRESS_MIN_BYTES if progress is None else progress
     state = _StreamState()
+    state.with_projections = with_projections
     with contextlib.ExitStack() as stack:
         stream, disk = _open(path, stack)
         # For .xml.gz input the percentage counts compressed bytes read from disk.
@@ -591,10 +626,10 @@ def _assemble(path: Path, state: _StreamState, require_projections: bool) -> Vas
     if state.eigen is None or state.layout is None:
         raise VasprunParseError(f"{path} has no <calculation><eigenvalues> block")
     layout = state.layout
-    if state.proj is None and state.earlier_projections:
+    if not state.saw_projected and state.earlier_projections:
         raise VasprunParseError(f"{path} has {state.calculations} <calculation> blocks; an earlier one has a <projected> block "
                                 "but the last one has none, so its eigenvalues and those projections would not match")
-    if state.proj is None and require_projections:
+    if not state.saw_projected and require_projections:
         hint = " The <dos><partial> block is energy-integrated DOS and is not used in its place." if state.has_partial_dos else ""
         raise ProjectionsMissingError(f"{path} has no <projected> block, so there are no band-resolved orbital weights. "
                                       f"Rerun the band calculation with LORBIT = 11 (LORBIT is {state.parameters.get('LORBIT')})." + hint)
@@ -607,6 +642,8 @@ def _assemble(path: Path, state: _StreamState, require_projections: bool) -> Vas
     if positions.shape != (nion, 3):
         raise VasprunLayoutError(f"structure has {positions.shape[0]} positions for {nion} ions")
     notes = list(state.notes)
+    if state.saw_projected and not state.with_projections:
+        notes.append("<projected> block present; its numbers were not read")
     if state.calculations > 1:
         notes.append(f"{state.calculations} calculation blocks; last one used")
     if state.incar.get("ISPIN") is not None and state.incar.get("ISPIN") != state.parameters.get("ISPIN"):
@@ -619,7 +656,7 @@ def _assemble(path: Path, state: _StreamState, require_projections: bool) -> Vas
         gap = float(np.max(np.abs(proj_eigen - state.eigen[..., 0])))
         if gap > 0:
             notes.append(f"<projected><eigenvalues> differ from <eigenvalues> by up to {gap:.2e} eV")
-    components = COMPONENT_LABELS[layout] if state.proj is not None else ()
+    components = COMPONENT_LABELS[layout] if state.saw_projected else ()
     return VasprunData(path=str(path), vasp_version=state.version, parameters=state.parameters, incar=state.incar,
                        layout=layout, species=state.species, lattice=lattice, reciprocal_lattice=reciprocal,
                        positions=positions, structure_source=source, kpoints=state.kpoints, kpoint_weights=state.weights,
@@ -627,4 +664,4 @@ def _assemble(path: Path, state: _StreamState, require_projections: bool) -> Vas
                        kpoint_divisions=state.divisions, efermi=state.efermi, eigenvalues=state.eigen[..., 0].copy(),
                        occupations=state.eigen[..., 1].copy(), projections=state.proj, projection_components=components,
                        orbital_labels=state.orbitals, projected_eigenvalues=proj_eigen, has_partial_dos=state.has_partial_dos,
-                       notes=notes)
+                       has_projected_block=state.saw_projected, notes=notes)

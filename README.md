@@ -167,6 +167,60 @@ Click a summary point to see its evidence files, and click a run card to see its
 Band runs have a Plot pill with energy inputs and a Redraw button, and runs with a structure file have a Structure pill.
 The right panel is the chat.
 
+## Orbital-projected bands from vasprun.xml
+
+The package `vasp_orbital_plotter` draws fat-band and colour-projected band structures straight from a VASP `vasprun.xml`.
+It needs no VASPKIT, PROCAR or EIGENVAL; the band run must have LORBIT = 11 so that the file holds the `<projected>` block.
+It is installed with the steps above, as the command `vasp-orbital-bands`; `python -m vasp_orbital_plotter` works the same way.
+Diana's specification is in `docs/orbital_plotter_spec.md`; this is stage 2 of three.
+
+In a folder with `vasprun.xml`, one command plots the d bands of every Mn ion:
+
+```bash
+vasp-orbital-bands --element Mn --orbitals d --output mn_d.png
+```
+
+`--vasprun` defaults to `vasprun.xml` in the current folder.
+`--output` is needed there, because the plotter never writes next to a vasprun.xml unless you name the file yourself.
+Run elsewhere, it writes a name built from the selection, such as `bands_Mn_d_fatband.png`, into the current folder.
+
+Selection examples (ions use VASP's numbering, starting at 1):
+
+```bash
+vasp-orbital-bands --vasprun run/vasprun.xml --list-atoms
+vasp-orbital-bands --vasprun run/vasprun.xml --list-orbitals
+vasp-orbital-bands --vasprun run/vasprun.xml --atoms 2 --orbitals pz --mode fatband --emin -3 --emax 3 --marker-scale 80 --output atom2_pz.pdf
+vasp-orbital-bands --vasprun run/vasprun.xml --atoms 1,3-4 --orbitals dxy,dxz --output bands.svg
+vasp-orbital-bands --vasprun run/vasprun.xml --element Te --orbitals p --mode color --output te_p.png
+vasp-orbital-bands --vasprun run/vasprun.xml --select Mn:eg --select 3:pz --normalize --output mix.png
+vasp-orbital-bands --vasprun run/vasprun.xml --element Mn --orbitals d --high-symmetry "1:G,41:M,81:K,121:G" --output mn_d.png
+vasp-orbital-bands inspect --vasprun run/vasprun.xml
+```
+
+- Options use their full names: `--atoms`, `--element`, `--orbitals`, `--high-symmetry`, `--output`; abbreviations are refused.
+- `--atom` and `--orbital` are accepted as other spellings of `--atoms` and `--orbitals`, so the specification's `--atom 2 --orbital pz` works.
+- `--mode` is `fatband` or `color`.
+- Orbital names follow the file's own labels, ignoring case, spaces, `_`, `^` and `-`; the shell letter is optional, so `dx2-y2` finds `x2-y2`.
+- Groups: `s`, `p`, `d`, `f` (all components of that shell in the file), `t2g`, `eg` and `all`; an incomplete group is refused.
+- The weight is the sum of VASP's stored values over the chosen ions and orbitals; `--normalize` divides by the total of each state.
+- Noncollinear and SOC files use the total-charge block; collinear ISPIN = 2 files use spin up for now, with a note.
+- Energies are E − E_F by default; `--absolute` keeps absolute energies and `--efermi` overrides the file's Fermi level.
+- `--emin` and `--emax` are relative to the Fermi level unless `--absolute` is given; the default window is −3 to 3 eV.
+- If no band reaches the window, the figure is still written with empty axes, and a `note:` line says so.
+- K-path distances are in 1/Å with the factor 2π, as in pymatgen and VASPKIT; separate path branches are never joined.
+- Segments come from a line-mode KPOINTS file, else the vasprun's line-mode divisions, else repeated k-points, else one line.
+- Labels come from `--high-symmetry "1:G,41:M"`, else KLABELS, else the vasprun's `<kpoints_labels>`, else KPOINTS comments.
+- `inspect`, `--list-atoms` and `--list-orbitals` skip the projection numbers and never load Matplotlib, so they answer quickly.
+- `--list-atoms` also works on a file without a `<projected>` block; `--list-orbitals` then says the file has no orbital labels.
+- The format follows the extension: PNG, SVG or PDF; `--dpi`, `--figsize`, `--font-size`, `--cmap`, `--cmin` and `--cmax` adjust the look.
+- A bad option, atom or orbital stops with one `error:` line and exit code 2; an unknown orbital lists the available ones.
+
+Mn d fat bands and Te p colour projection of Diana's MnTe `9.2-band` run (SOC, total charge):
+
+![Mn d fat bands of MnTe](docs/figures/orbital_plotter/mnte_Mn_d_fatband.png)
+
+![Te p colour projection of MnTe](docs/figures/orbital_plotter/mnte_Te_p_color.png)
+
 ## Open a project directly
 
 Add `?project=NAME` to the address, for example http://localhost:8080/?project=MnTe.
